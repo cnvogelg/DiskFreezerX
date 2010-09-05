@@ -1,0 +1,18 @@
+
+#arm7_9 dcc_downloads enable
+#arm7_9 fast_memory_access enable
+
+init
+
+echo "*** RESET BOARD ***"
+
+reset init
+
+# swap in RAM in 0x0
+echo "*** ENABLE RAM ***"
+halt
+mww 0xffffff00 1
+sleep 10
+
+echo "*** READY ***"
+

@@ -1,0 +1,37 @@
+The mrfusion SPI Protocol
+-------------------------
+
+The protocol consists of two layers:
+
+1.) A low-level SPI communication with the SAM7x being the slave and the
+    IGEP board being the master.
+    
+2.) High-level commands that control the slave from the master
+
+
+
+Commands
+--------
+
+  Floppy select
+  
+    e           select floppy
+    d           disable floppy
+    
+  Motor control:
+  
+    o           motor on
+    f           motor off
+    s           seek to track zero
+    +           step to next track
+    -           step to previous track
+    z           is track zero?
+    
+  Side select:
+  
+    t           top side
+    b           bottom side
+  
+  Misc:    
+    
+    x           leave program

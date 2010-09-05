@@ -1,0 +1,26 @@
+
+#arm7_9 dcc_downloads enable
+#arm7_9 fast_memory_access enable
+
+init
+
+echo "*** RESET BOARD ***"
+
+reset init
+
+echo "*** LOADING IMG ***"
+
+load_image main.elf 0
+
+# swap in RAM in 0x0
+# already done in reset
+#echo "*** GOTO RAM ***"
+#mww 0xffffff00 1
+
+# launch code
+resume 0
+
+# end ocd
+shutdown
+echo "*** READY ***"
+
