@@ -392,7 +392,7 @@ clean_list :
 	@rm -rf $(BUILD_DIR)
 
 # Include the dependency files.
--include $(shell mkdir .dep 2>/dev/null) $(wildcard $(BUILD_DIR)/*.d)
+-include $(wildcard $(BUILD_DIR)/*.d)
 
 
 # Listing of phony targets.

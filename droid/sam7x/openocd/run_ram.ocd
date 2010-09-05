@@ -10,7 +10,7 @@ reset init
 
 echo "*** LOADING IMG ***"
 
-load_image main.elf 0
+load_image BUILD/dfx-droid.elf 0
 
 # swap in RAM in 0x0
 # already done in reset
