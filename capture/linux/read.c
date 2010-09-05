@@ -88,9 +88,26 @@ int read_dsk(spi_t *spi)
             printf("\n  [waiting for raw blocks... wait_blocks=%d max_blocks=%d]\n", config.wait_blocks, config.max_blocks);
         }
         uint8_t *raw_blocks;
-        int num_blocks = spi_bulk_read_raw_blocks(spi, config.wait_blocks, config.max_blocks, &raw_blocks);
-        if(num_blocks <= 0) {
-            printf("READ ERROR: %s\n", spi_bulk_proto_error_string(num_blocks));
+        uint32_t num_blocks;
+        int error = spi_bulk_read_raw_blocks(spi, config.wait_blocks, config.max_blocks, &raw_blocks, &num_blocks);
+
+        // reading from SPI failed!
+        if(error < 0) {
+            printf("READ ERROR: %s (got %d blocks)\n", spi_bulk_proto_error_string(error), num_blocks);
+            if(raw_blocks != NULL) {
+
+            	/* write error dump */
+            	FILE *fh = fopen("error.dump","w");
+                if(fh != NULL) {
+                     if(config.verbose) {
+                         printf("  [writing 'error.dump']\n");
+                     }
+                     fwrite(raw_blocks, num_blocks * SPI_BLOCK_SIZE,1,fh);
+                     fclose(fh);
+                 }
+
+            	free(raw_blocks);
+            }
             error = -1;
             break;
         }
@@ -176,7 +193,8 @@ int read_trk(spi_t *spi)
         printf("  [waiting for raw blocks... wait_blocks=%d max_blocks=%d]\n", config.wait_blocks, config.max_blocks);
     }
     uint8_t *raw_blocks;
-    int num_blocks = spi_bulk_read_raw_blocks(spi, config.wait_blocks, config.max_blocks, &raw_blocks);
+    uint32_t num_blocks;
+    result = spi_bulk_read_raw_blocks(spi, config.wait_blocks, config.max_blocks, &raw_blocks, &num_blocks);
 
     result = stop_floppy(spi);
     if(result < 0) {

@@ -25,7 +25,8 @@ const char *spi_bulk_proto_error_string(int code)
     return error_string[offset];
 }
 
-int spi_bulk_read_raw_blocks(spi_t *spi,uint32_t wait_start,uint32_t max_blocks,uint8_t **result)
+int spi_bulk_read_raw_blocks(spi_t *spi,uint32_t wait_start,uint32_t max_blocks,
+							 uint8_t **result, uint32_t *result_num_blocks)
 {
     // get memory for all blocks
     uint8_t *block_data = (uint8_t *)malloc(SPI_BLOCK_SIZE * max_blocks);    
@@ -35,6 +36,7 @@ int spi_bulk_read_raw_blocks(spi_t *spi,uint32_t wait_start,uint32_t max_blocks,
     
     // receive loop
     *result = block_data;
+    *result_num_blocks = 0;
     uint32_t num_blocks = 0;
     uint32_t i,j;
     uint8_t *ptr;
@@ -45,10 +47,12 @@ int spi_bulk_read_raw_blocks(spi_t *spi,uint32_t wait_start,uint32_t max_blocks,
     char cmd[2] = { 0, CMD_TRACK_READ };
     if(spi_transmit(spi, NULL, cmd, 2)) {
         free(block_data);
+        *result = NULL;
         return -ERR_RX;
     }
     
     // wait for BOF marker in first block
+    *result_num_blocks = 1;
     for(i=0;i<wait_start;i++) {
 
         // reset pointer in each try
@@ -56,7 +60,6 @@ int spi_bulk_read_raw_blocks(spi_t *spi,uint32_t wait_start,uint32_t max_blocks,
         
         // read block via spi
         if(spi_transmit(spi,ptr,NULL,SPI_BLOCK_SIZE)) {
-            free(block_data);
             return -ERR_RX;
         }
 
@@ -84,17 +87,17 @@ int spi_bulk_read_raw_blocks(spi_t *spi,uint32_t wait_start,uint32_t max_blocks,
     for(i=1;i<max_blocks;i++) {
         // read block via spi
         if(spi_transmit(spi,ptr,NULL,SPI_BLOCK_SIZE)) {
-            free(block_data);
             return -ERR_RX;
         }
         
         num_blocks++;
+        *result_num_blocks = num_blocks;
 
         // check if block contains EOT marker
         for(j=0;j<SPI_BLOCK_SIZE;j++) {
             uint8_t code = *(ptr++);
             if(code == SPI_BULK_EOT) {
-                return num_blocks;
+                return ERR_NONE;
             }
         }
     }

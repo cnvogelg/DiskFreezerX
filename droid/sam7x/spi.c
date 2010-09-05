@@ -115,7 +115,7 @@ u32 spi_bulk_end(void)
 
       // now wait for both DMA buffers getting drained
       for(i=1000 * 1000;i>0;i--) {
-          if(spi_low_tx_dma_first_empty())
+          if(spi_low_all_tx_dma_empty())
             break;
           delay_us(1);
       }

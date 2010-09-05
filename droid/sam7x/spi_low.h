@@ -60,6 +60,11 @@ __inline void spi_low_tx_irq_disable(void)
     *AT91C_SPI_TDR = 0;
 }
 
+__inline int spi_low_all_tx_dma_empty(void)
+{
+    return (*AT91C_SPI_SR & AT91C_SPI_TXBUFE) == AT91C_SPI_TXBUFE;
+}
+
 __inline int spi_low_tx_dma_first_empty(void)
 {
 	return *AT91C_SPI_TCR == 0;

@@ -265,7 +265,7 @@ volatile u08 index_total;
 void index_counter_flag(void)
 {
     index_total ++;
-    index_flag = 1;
+    index_flag = timer2_get_timer();
 }
 
 void trk_read_real(void)
@@ -311,8 +311,10 @@ void trk_read_real(void)
             }
             my_data_counter++;
 
+            // index marker was found
             if(index_flag) {
                 spi_bulk_write_byte(MARKER_INDEX);
+                spi_bulk_write_byte((u08)index_flag);
                 my_data_counter++;
                 index_flag = 0;
             }

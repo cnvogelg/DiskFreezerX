@@ -22,7 +22,7 @@
 extern const char *spi_bulk_error_string(int code);
 
 extern int spi_bulk_read_raw_blocks(spi_t *spi,uint32_t wait_start,uint32_t max_blocks,
-                                    uint8_t **result);
+                                    uint8_t **result, uint32_t *num_blocks);
 
 extern int spi_bulk_decode_raw_blocks(const uint8_t *data,uint32_t max_blocks,
                                       uint8_t **result, uint32_t *ret_max_frame_size);

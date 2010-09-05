@@ -21,7 +21,7 @@ int main(void)
     spi_enable();
 
     // say hello
-    uart_send_string((u08 *)"--- mrfu ---");
+    uart_send_string((u08 *)"--- dfx-droid ---");
     uart_send_crlf();
 
     int stay = 1;
