@@ -71,7 +71,7 @@ SRC += $(TARGET).c
 # List C source files here which must be compiled in ARM-Mode.
 # use file-extension c for "c-only"-files
 SRCARM = common/Cstartup_SAM7.c
-SRCARM += timer_irq.c 
+#SRCARM += timer_irq.c 
 #SRCARM += irqutils.c
 
 # List C++ source files here.
