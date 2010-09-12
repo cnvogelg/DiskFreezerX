@@ -12,24 +12,24 @@ Bit Cell:
     
     MFM Patterns: 1..3 zeros
                    __
-    z1:  4us:     |1 |__|
+    z1:  4us:     |1 |0_|
                    __
-    z2:  6us:     |1 |__ __|
+    z2:  6us:     |1 |0_ 0_|
                    __
-    z3:  8us:     |1 |__ __ __|
+    z3:  8us:     |1 |0_ 0_ 0_|
     
     200 ms per rot -> bit cells = 100 000 bits / track
     
 Capture:
-    ala Cylclone20: record raising edges of 1-pulses and measure delta
+    ala Cylclone20: record falling edges of 1-pulses and measure delta
        __       __
-    __|  |__ __|  |_
+    __|  |_..._|  |_  (logical signal)
       ^        ^
       +--- d --+ measure this delta
     
     if delta == 4us -> z1
        delta == 6us -> z2
-       delta == 8us -> z3
+       delta == 8us -> z3 -> recover bit stream from sampled bit cells
        
 Capture with AT91SAM7x:
 
@@ -42,23 +42,5 @@ Capture with AT91SAM7x:
     z3 8us ^= 192.22 ticks   -> 192 dec = 0xc0 hex
     
     -> "normal" intervals fit in a byte!
-    -> data stream: ~4us a byte -> 250 Kb/s = 2000 MB/s
-    -> SPI link needs at least 2 MB/s
-
-SPI Data Transfer:
-
-    - AT91SAM7x is a SPI slave that gets clocked by beagle
-    - beagle is master that runs a 3 MHz SPI clock
-    - beagle reads 4096 bytes SPI messages until an end code is received
-    
-    SPI Data Coding:
-    
-    0x00:       idle byte - returned if SAM has no data ready
-    0x01-0xf0:  time pulse measured in MCK/2 ticks (see above)
-    0xf1 <delta hi> <delta lo>
-                longer time pulse 0xf1 .. 0xffff ticks
-    0xf2        timer overflowed
-    0xf3:       index sync pulse detected
-    0xfe <crc hi> <crc lo>    
-                CRC32 check sum of preceding data without idle bytes
-    0xff        end of transmission
+    -> data stream: ~4us a byte -> 250 Kb/s = 2000 MBit/s
+    -> SPI link needs at least 2 MBit/s

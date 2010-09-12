@@ -5,4 +5,4 @@ target remote localhost:3333
 mon reset init
 mon reg pc 0
 
-load /Users/chris/Projects/DiskFreezerX/DiskFreezerX.git/droid/sam7x/BUILD/dfx-droid.elf
+load /Users/chris/Projects/DiskFreezerX/DiskFreezerX.git/sampler/sam7x/BUILD/dfx-sampler.elf

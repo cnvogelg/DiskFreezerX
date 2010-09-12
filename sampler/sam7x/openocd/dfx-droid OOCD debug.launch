@@ -20,7 +20,7 @@
 <stringAttribute key="org.eclipse.cdt.dsf.gdb.DEBUG_NAME" value="/opt/arm-elf-gdb/bin/arm-elf-gdb"/>
 <stringAttribute key="org.eclipse.cdt.dsf.gdb.DEV" value="/dev/ttyS0"/>
 <stringAttribute key="org.eclipse.cdt.dsf.gdb.DEV_SPEED" value="115200"/>
-<stringAttribute key="org.eclipse.cdt.dsf.gdb.GDB_INIT" value="/Users/chris/Projects/DiskFreezerX/DiskFreezerX.git/droid/sam7x/openocd/gdb.cmd"/>
+<stringAttribute key="org.eclipse.cdt.dsf.gdb.GDB_INIT" value="/Users/chris/Projects/DiskFreezerX/DiskFreezerX.git/sampler/sam7x/openocd/gdb.cmd"/>
 <stringAttribute key="org.eclipse.cdt.dsf.gdb.HOST" value="localhost"/>
 <booleanAttribute key="org.eclipse.cdt.dsf.gdb.NON_STOP" value="false"/>
 <stringAttribute key="org.eclipse.cdt.dsf.gdb.PORT" value="3333"/>

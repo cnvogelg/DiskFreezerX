@@ -5,61 +5,93 @@
 #include "cmd_spi.h"
 #include "config.h"
 
-int cmd_parse_execute(spi_t *spi, const char *cmds)
+#define CMD_RES_ABORT		0x80
+#define CMD_RES_FAILED		0x40
+#define CMD_RES_SIZE_MASK	0x3f
+
+int cmd_parse_execute(spi_t *spi, const char *cmds, size_t max_results, parse_result_t *results)
 {
-    int num_cmds = 0;
-    const char *c = cmds;
-    int len = 0;
-    
-    // determine number of commands (excluding args)
-    while(*c != '\0') {
-        // skip byte arg
-        if(*c == ':') {
-            c += 3;
-            len += 3;
-        } else {
-            c++;
-            len++;
-            num_cmds++;
-        }
-    }
-    
     // send command sequence
+    size_t len = strlen(cmds);
     int result = cmd_spi_tx(spi, cmds, len, config.cmd_timeout);
     if(result < 0) {
         return result;
     }
+
+    // result buffer
+    const int max_status_len = 128;
+    char status_buf[max_status_len];
     
-    // get result
-    int result_size = num_cmds * 2;
-    char *res = (char *)malloc(result_size);
-    if(res == NULL) {
-        return -1;
-    }
-    
-    result = cmd_spi_rx(spi, res, result_size, config.cmd_timeout);
+    // read result
+    result = cmd_spi_rx(spi, status_buf, max_status_len, config.cmd_timeout);
     if(result < 0) {
         return result;
     }
-    
-    if(result != result_size) {
-        return -1;
-    }
+    status_buf[result] = '\0';
     
     // check result codes
-    int sum = 0;
-    char *buf = res;
-    int i;
-    for(i=0;i<num_cmds;i++) {
-        int val;
+    char *buf = status_buf;
+    int num_cmds = 0;
+    int num_ok = 0;
+    while(*buf != '\0') {
+    	// scan result
+    	int val;
         if(sscanf(buf,"%02x",&val)!=1) {
-            free(res);
-            return -1;
+        	break;
         }
-        sum += val;
-        buf += 2;
+        buf+=2;
+
+        // was aborted...
+    	if(val & CMD_RES_ABORT)
+    		return -CMD_ERR_ABORTED;
+
+    	// next command
+    	if((val & CMD_RES_FAILED)==0) {
+    		num_ok ++;
+    	}
+
+    	// has optional bytes?
+    	int size = (val & CMD_RES_SIZE_MASK);
+    	if(size > 0) {
+    		// store bytes?
+    		char *out = NULL;
+    		if((results != NULL)&&(num_cmds < max_results)) {
+    			out = (char *)malloc(size);
+    			results[num_cmds].data = out;
+    			results[num_cmds].size = (out != NULL) ? size : 0;
+    		}
+
+    		// decode optional bytes
+    		int i;
+    		for(i=0;i<size;i++) {
+    			if(sscanf(buf,"%02x",&val)!=1) {
+    				return -CMD_ERR_ABORTED;
+    			}
+    			buf+=2;
+    			if(out != NULL) {
+    				*(out++) = (char)(val & 0xff);
+    			}
+    		}
+    	} else {
+    		if((results != NULL)&&(num_cmds < max_results)) {
+    			results[num_cmds].data = NULL;
+    			results[num_cmds].size = 0;
+    		}
+    	}
+
+   		num_cmds++;
     }
-    
-    free(res);
-    return sum;
+    return num_ok;
+}
+
+void cmd_parse_free(int num_results, parse_result_t *results)
+{
+	int i;
+	for(i=0;i<num_results;i++) {
+		if(results[i].data!=NULL) {
+			free(results[i].data);
+			results[i].data = NULL;
+			results[i].size = 0;
+		}
+	}
 }

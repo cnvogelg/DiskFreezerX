@@ -4,6 +4,10 @@
 #include "trk_read.h"
 #include "uartutil.h"
 
+#define CMD_RES_ABORTED         0x80
+#define CMD_RES_FAIELD          0x40
+#define CMD_RES_SIZE_MASK       0x3f
+
 static const u08 *in;
 static u08 *out;
 static u08 out_size;
@@ -16,6 +20,12 @@ static void set_result(u08 val)
     out_size += 2;
 }
 
+static void set_abort(void)
+{
+    set_result(CMD_RES_ABORTED);
+    in_size = 0;
+}
+
 static void set_dword(u32 val)
 {
     dword_to_hex(val, out);
@@ -23,36 +33,17 @@ static void set_dword(u32 val)
     out_size += 8;
 }
 
-static u08 parse_opt_hex_byte(u08 def_val)
+static u08 parse_hex_byte(u08 def)
 {
-    if(in_size == 0)
-        return def_val;
-    if(*in != ':')
-        return def_val;
-
-    in ++;
-    in_size --;
-
-    if(in_size == 0)
-      return def_val;
-
+    if(in_size < 2)
+        return def;
     u08 val;
-    if(in_size == 1) {
-        if(parse_nybble(*in,&val)) {
-            in_size --;
-            in ++;
-            return val;
-        } else {
-            return def_val;
-        }
+    if(parse_byte(in,&val)) {
+        in_size -= 2;
+        in += 2;
+        return val;
     } else {
-        if(parse_byte(in,&val)) {
-            in_size -= 2;
-            in += 2;
-            return val;
-        } else {
-            return def_val;
-        }
+        return def;
     }
 }
 
@@ -93,17 +84,26 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
             set_result(0);
             break;
         case '+':
-            num = parse_opt_hex_byte(1);
-            cmd_step_in(num);
-            set_result(num);
+            num = parse_hex_byte(0xff);
+            if(num == 0xff) {
+                set_abort();
+            } else {
+                cmd_step_in(num);
+                set_result(0);
+            }
             break;
         case '-':
-            num = parse_opt_hex_byte(1);
-            cmd_step_out(num);
-            set_result(num);
+            num = parse_hex_byte(0xff);
+            if(num == 0xff) {
+                set_abort();
+            } else {
+                cmd_step_out(num);
+                set_result(0);
+            }
             break;
         case 'z':
             num = cmd_is_track_zero();
+            set_result(1);
             set_result(num);
             break;
         case 'x':
@@ -122,18 +122,21 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
         case 'I':
             {
                 u32 count = trk_read_count_index();
+                set_result(4);
                 set_dword(count);
             }
             break;
         case 'D':
             {
                 u32 count = trk_read_count_data();
+                set_result(4);
                 set_dword(count);
             }
             break;
         case 'S':
             {
                 u32 count = trk_read_data_spectrum();
+                set_result(4);
                 set_dword(count);
             }
             break;

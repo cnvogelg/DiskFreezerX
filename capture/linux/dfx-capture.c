@@ -9,25 +9,34 @@
 
 #include "spi_bulk.h"
 #include "spi.h"
-#include "cmd_spi.h"
+#include "cmd_parse.h"
 #include "config.h"
 
 static void cmd_exec(spi_t *spi)
 {
     const char *cmd = config.args[0];
+    const int max_result = 10;
+    parse_result_t results[max_result];
     
     printf("executing command: '%s' (timout: %d ms)\n",cmd, config.cmd_timeout);
-    int result = cmd_spi_tx(spi, cmd, strlen(cmd), config.cmd_timeout);
+    int result = cmd_parse_execute(spi, cmd, max_result, results);
     printf("  result: %d\n", result);
-    if(result == 0) {
-        printf("waiting for reply: (timeout %d ms)\n", config.cmd_timeout);
-        char buf[CMD_MAX_SIZE+1];
-        result = cmd_spi_rx(spi, buf, CMD_MAX_SIZE, config.cmd_timeout);
-        printf("  result: %d\n", result);
-        if(result >0 ) {
-            buf[result] = 0;
-            printf("  data: '%s'\n",buf);
-        }
+    if(result >= 0) {
+    	int i;
+    	int num = (result < max_result) ? result : max_result;
+    	for(i=0;i<num;i++) {
+    		size_t size = results[i].size;
+    		printf("  size: %d",size);
+    		if(size > 0) {
+    			int j;
+    			printf(", data: ");
+    			for(j=0;j<size;j++) {
+    				printf("%02x ",results[i].data[j]);
+    			}
+    		}
+    		printf("\n");
+    	}
+    	cmd_parse_free(result, results);
     }
 }
 

@@ -13,7 +13,7 @@ config_t config = {
     .wait_blocks = 100 * 5,
     .max_blocks = 100 * 5,
     .spi_mode = 1,
-    .cmd_timeout = 1000,
+    .cmd_timeout = 2000,
 
     .verbose = 0
 };
@@ -28,7 +28,7 @@ typedef struct {
 } cmd_tab;
 
 static cmd_tab commands[] = {
-    { "exec",       CMD_EXEC,       "<cmd_seq>",1,1,    "execute commands directly on fu-probe" },
+    { "exec",       CMD_EXEC,       "<cmd_seq>",1,1,    "execute commands directly on sampler" },
     { "read_trk",   CMD_READ_TRK,   "<raw_file> [debug_file]",1,2, "read a single track and store in file" },
     { "read_dsk",   CMD_READ_DSK,   "<raw_file>",1,1,   "read a disk and store in file" },
     { NULL, -1, NULL }

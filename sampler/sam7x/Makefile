@@ -60,7 +60,7 @@ RUN_MODE=RAM_RUN
 VECTOR_LOCATION=VECTORS_IN_RAM
 
 # Target file name (without extension).
-TARGET = dfx-droid
+TARGET = dfx-sampler
 
 # List C source files here. (C dependencies are automatically generated.)
 # use file-extension c for "c-only"-files

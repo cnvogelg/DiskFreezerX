@@ -10,7 +10,7 @@ static int control_floppy(spi_t *spi,const char *cmd)
     if(config.verbose>0) {
         printf("  [control floppy (cmd: '%s')]\n", cmd);
     }        
-    int result = cmd_parse_execute(spi, cmd);
+    int result = cmd_parse_execute(spi, cmd, 0, NULL);
     if(config.verbose>0) {
         printf("  [result: %d]\n", result);
     }
@@ -26,27 +26,31 @@ static int start_floppy(spi_t *spi)
     } else {
         side = 'b';
     }
-    char cmd[] = "eosz?+:..";
+    char cmd[] = "eosz?+..";
     cmd[4] = side;
     
+    int num_cmds = 6;
     if(config.begin_track>0) {
-        sprintf(cmd+7,"%02x",config.begin_track);
+        sprintf(cmd+6,"%02x",config.begin_track);
     } else {
         cmd[5] = '\0';
+        num_cmds = 5;
     }
     
     int result = control_floppy(spi,cmd);
     
     // check value
-    if(result == config.begin_track + 1)
+    if(result == num_cmds)
         return 0;
-    
-    return result;
+    else if(result < 0)
+    	return result;
+    else
+    	return -1;
 }
 
 static int stop_floppy(spi_t *spi)
 {
-    return control_floppy(spi,"fd");
+    return (control_floppy(spi,"fd")==2) ? 0 : -1;
 }
 
 int read_dsk(spi_t *spi)
@@ -149,15 +153,15 @@ int read_dsk(spi_t *spi)
         if(config.sides == SIDES_ALL) {
             // toggle side
             if(i % 2 == 0) {
-                error = control_floppy(spi,"t");
+                error = (control_floppy(spi,"t") != 1) ? -1 : 0;
                 side = 1;
             } else {
-                error = control_floppy(spi,"b+");
+                error = (control_floppy(spi,"b+01") != 2) ? -1 : 0;
                 side = 0;
                 t++;
             }
         } else {
-            error = control_floppy(spi,"+");
+            error = (control_floppy(spi,"+01") != 1) ? -1 : 0;
             t++;
         }
         if(error<0) {

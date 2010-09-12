@@ -1,14 +1,48 @@
-The mrfusion SPI Protocol
--------------------------
+The sampler Protocol
+--------------------
 
-The protocol consists of two layers:
+The sampler is a stand-alone device performing the disk sampling and is
+controlled via the capture tool running on a host system.
 
-1.) A low-level SPI communication with the SAM7x being the slave and the
-    IGEP board being the master.
-    
-2.) High-level commands that control the slave from the master
+Sampler and capture tool communicate with a protocol to perform the disk
+control and the sample data transfer.
 
+This document describes the protocol and the data transfer mechanism.
 
+Currently the protocol is implemented on an SPI link, but it is designed to
+run on numerous different data transport mechanisms.
+
+1. Command Protocol
+-------------------
+
+The sampler device starts in command mode after power up.
+The command mode is only left while transferring sampled data.
+The sampler then waits for a command line to be executed.
+
+Main loop:
+
+* The capture tool sends a command line. 
+
+* The sampler executes the comands and returns a status line containing the
+  results of all commands.
+
+* The result values are one or more hex bytes that are returned in ASCII
+  notation (2 chars per byte in hex).
+
+  Each command has a single result byte assigned with the following meaning:
+    0x80: command aborted execution
+    0x40: command failed
+    0x3f: mask for size n. n bytes follow on status line
+  
+* For each command the number of returned bytes is specified in the following list.
+
+* Some commands also take parameters. Those are given as hex numbers, too.
+
+Example:
+
+  send commands:  "aX05"  <- send command "a" and "X" with argument "05"
+  returns status: "014200" <- result "a" : 01 -> one extra byte "42"
+                              result "X" : 00 -> ok, no extra byte
 
 Commands
 --------
@@ -35,3 +69,74 @@ Commands
   Misc:    
     
     x           leave program
+
+
+2. SPI Implementation
+---------------------
+
+The SPI is designed so that the capture host is the SPI master and the sampler
+board the SPI slave.
+
+A Byte is written and clocked by the master while another one is read from the sampler.
+
+2.1 Command Transfer
+
+The following commands are defined for the master:
+
+#define CMD_NONE        0x00
+#define CMD_TX          0x01
+#define CMD_RX          0x02
+
+If CMD_NONE is written then this byte is simply ignored by the sampler.
+
+A CMD_TX initiates a command line transfer to the sampler.
+It is followed by a size byte and the n bytes of the command line.
+
+A CMD_RX initiates a status line transfer from the sampler.
+It is followed by a size byte. Then n  bytes are read from the sampler.
+
+The Sampler signals its processing state by sending one of the following:
+
+#define READY_MASK      0xc0
+#define READY_FLAG      0x80
+#define SIZE_MASK       0x3f
+
+If the sampler is ready to receive and execute commands then the READY_FLAG is set.
+(Highest bits are 0b10......)
+If the sampler has some status bytes available this size is ORed into this flag.
+At most 0x3f result bytes are allowed.
+
+It the sampler is busy then the READY_FLAG is cleared until the command is executed.
+
+A SPI command transfer works as follows:
+
+  Wait for ready
+
+  1.   Master: read 2 bytes                  Slave: send READY_FLAG, size=0 (0x80)
+  2.   If bytes[1] != READY_FLAG goto 1
+  
+  Send Command Line to Sampler
+
+  3.   Master: send CMD_TX + size + n bytes  Slave: receive n bytes 
+                                                    clear READY_FLAG
+                                                    process command and fill status buffer
+  
+  Wait for Command Finish
+
+  4.   Master: read 2 bytes                         ...
+  5.   If bytes[1] != READY_FLAG goto 4             ready, set READY_FLAG + status_size
+       Optional: Handle Timeout if command
+         takes too long
+
+  Retrieve Command Status Line from Sampler
+
+  6.   status_size = bytes[1] & SIZE_MASK
+  7.   Master: send CMD_RX + status_size     Slave: handle CMD_RX 
+       Master: receive status_size bytes            send n status bytes
+                                                    reset status buffer
+  8.   check status line. execution done
+
+NB: The 2 bytes read for the master is only done as a single byte read seems to
+have problems on the BeagleBoard SPI. On other implementations a single byte
+read is fully sufficient.
+
