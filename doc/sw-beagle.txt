@@ -1,0 +1,52 @@
+sw-beagle.txt
+-------------
+
+Compiling the DiskFreezerX Software for the Beagle Board
+--------------------------------------------------------
+
+1. Build dfx-capture
+--------------------
+
+The dfx-capture tool resides in "capture/linux".
+
+You need a cross compiler for your Linux distribution running on the
+BeagleBoard to build the tool.
+
+I have a Poky Linux setup for my IGEPv2 board.
+
+In your Poky build directory the cross compiler is found in:
+
+poky/build/tmp-poky/cross/armv7a
+
+Make sure to have the cross compiler "arm-none-linux-gnueabi-gcc" in your PATH.
+
+Then a simple "make" in "capture/linux" will build the "dfx-capture" tool.
+
+
+2. Run dfx-capture
+------------------
+
+* Copy dfx-capture to the root file system of your BeagleBoard.
+* Setup all hardware and connect the sampler board via SPI.
+* Make sure to have an SPI enabled Linux kernel running
+  (see patch in /contrib!).
+
+  > ls /dev/spidev4.0
+ 
+* Capture a single track with:
+
+  > dfx-capture read_trk trackdata
+
+  This will read an capture a single track
+
+* Capture a full disk:
+
+  > dfx-capture read_dsk track
+
+  This will capture all tracks of a disk into the files track_<no>_<side>
+
+* Execute some sampler commands:
+
+  > dfx-capture exec <commands>
+
+EOF

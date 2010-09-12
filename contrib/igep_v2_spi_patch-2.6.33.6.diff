@@ -1,0 +1,60 @@
+diff --git a/arch/arm/mach-omap2/board-igep0020.c b/arch/arm/mach-omap2/board-igep0020.c
+index 334b54f..7a4b64a 100644
+--- a/arch/arm/mach-omap2/board-igep0020.c
++++ b/arch/arm/mach-omap2/board-igep0020.c
+@@ -17,6 +17,7 @@
+ #include <linux/io.h>
+ #include <linux/gpio.h>
+ #include <linux/interrupt.h>
++#include <linux/spi/spi.h> // CV
+ 
+ #include <linux/regulator/machine.h>
+ #include <linux/i2c/twl.h>
+@@ -510,6 +511,14 @@ static struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
+ 
+ #ifdef CONFIG_OMAP_MUX
+ static struct omap_board_mux board_mux[] __initdata = {
++// CV BEGIN
++       /* McSPI 4 */
++       OMAP3_MUX(MCBSP1_CLKR, OMAP_MUX_MODE1 | OMAP_PIN_INPUT),
++       OMAP3_MUX(MCBSP1_DX, OMAP_MUX_MODE1 | OMAP_PIN_INPUT),
++       OMAP3_MUX(MCBSP1_DR, OMAP_MUX_MODE1 | OMAP_PIN_INPUT),
++       OMAP3_MUX(MCBSP1_FSX, OMAP_MUX_MODE1 | OMAP_PIN_INPUT_PULLUP),
++// CV END
++
+ 	{ .reg_offset = OMAP_MUX_TERMINATOR },
+ };
+ #else
+@@ -572,6 +581,23 @@ static void __init igep2_init_wifi_bt(void)
+ 		pr_warning("IGEP v2: Could not obtain gpio GPIO_BT_NRESET\n");
+ }
+ 
++// CV BEGIN
++static struct spi_board_info igep_spi_board_info[] = {
++       {
++               .modalias       = "spidev",
++               .max_speed_hz   = 48000000, //48 Mbps
++               .bus_num        = 4, // Setup McSPI4 on external connector
++               .chip_select    = 0,    
++               .mode = SPI_MODE_1,
++       },
++};
++
++static void __init igep2_init_spi(void)
++{
++       spi_register_board_info(igep_spi_board_info, ARRAY_SIZE(igep_spi_board_info));
++}
++// CV END
++
+ static void __init igep2_init(void)
+ {
+ 	int hwrev;
+@@ -597,6 +623,8 @@ static void __init igep2_init(void)
+ 	igep2_init_smsc911x();
+ 	igep2_init_wifi_bt();
+ 
++	igep2_init_spi(); // CV
++
+ 	/* GPIO userspace leds */
+ #if !defined(CONFIG_LEDS_GPIO) && !defined(CONFIG_LEDS_GPIO_MODULE)
+ 	if ((gpio_request(IGEP2_GPIO_LED0_RED, "led0:red") == 0) &&

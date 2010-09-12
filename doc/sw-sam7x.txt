@@ -1,0 +1,25 @@
+sw-beagle.txt
+-------------
+
+Compiling the DiskFreezerX Software for the AT91SAM7x Board
+-----------------------------------------------------------
+
+1. Build dfx-sampler Firmware
+-----------------------------
+
+For compilation you will need a ARM-ELF gcc cross tool chain.
+Many Linux distributions already provide packages for them.
+The code resides in "sampler/sam7x".
+
+2. Run the firmware
+-------------------
+
+Currently, I use a JTAG connector with OpenOCD to upload and
+run the code.
+
+"make run" does the uploading and running.
+
+Have a look at "openocd" directory for an updated board config
+and the OpenOCD run scripts.
+
+EOF

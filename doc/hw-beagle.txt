@@ -1,0 +1,42 @@
+hw-beagle.txt
+-------------
+
+BeagleBoard/IGEPv2 Board Hardware Setup for DiskFreezerX
+========================================================
+
+1. SPI Adapter and Level Converter
+----------------------------------
+
+The BeagleBoard can connect to the Sampler board via SPI that is available on
+the Expansion Port. On this connector the McSPI4 pins are required:
+
+Pin 12     SIMO    \
+Pin 16     CS0      \ McSPI4
+Pin 18     SOMI     /
+Pin 20     CLK     /
+
+Pin 1      1.8V
+Pin 27,28  GND
+
+I use a MAX 3378 level converter to raise the 1.8V SPI levels to 3.3V/5.0V for
+the SAM7x Sampler board. The connection is as follows:
+
+MAX 3378 Pins:
+ 1 = 1.8V  <---> (Extension Pin 1)
+ 2 = CLK   <---> (Extension Pin 20)
+ 3 = SOMI  <---> (Extension Pin 18)
+ 4 = CS0   <---> (Extension Pin 16)
+ 5 = SIMO  <---> (Extension Pin 12)
+ 6 = NC
+ 7 = GND
+ 8 = ThreeState <---> GND
+ 9 = NC
+10 = SIMO  <----> Sampler SIMO
+11 = CS0   <----> Sampler CS0
+12 = SOMI  <----> Sampler SOMI
+13 = CLK   <----> Sampler CLK
+14 = 5V    <----> Sampler +5V
+
+Pins 10, 11, 12, and 13 are pulled-up with 10k to +5V.
+
+EOF
