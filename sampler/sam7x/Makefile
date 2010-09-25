@@ -281,6 +281,7 @@ TARGET_LSS=$(BUILD_DIR)/$(TARGET).lss
 TARGET_SYM=$(BUILD_DIR)/$(TARGET).sym
 TARGET_HEX=$(BUILD_DIR)/$(TARGET).hex
 TARGET_BIN=$(BUILD_DIR)/$(TARGET).bin
+TARGET_WARM=$(BUILD_DIR)/$(TARGET).warm
 
 # Default target.
 all: make_build build_all calcsize
@@ -290,7 +291,7 @@ make_build:
 	@if [ ! -d $(BUILD_DIR)/common ]; then mkdir $(BUILD_DIR)/common ; fi
 
 ifeq ($(FORMAT),ihex)
-build_all: elf hex lss sym
+build_all: elf hex lss sym warm
 hex: $(TARGET_HEX)
 IMGEXT=hex
 else 
@@ -306,6 +307,7 @@ endif
 elf: $(TARGET_ELF)
 lss: $(TARGET_LSS) 
 sym: $(TARGET_SYM)
+warm: $(TARGET_WARM)
 
 # Display size of file.
 HEXSIZE = $(SIZE) --target=$(FORMAT) $(TARGET_HEX)
@@ -326,7 +328,7 @@ run: $(TARGET).$(IMGEXT)
 %.hex: %.elf
 	@echo "  [objcopy]  $@"
 	$(HIDE)$(OBJCOPY) -O $(FORMAT) $< $@
-	
+
 # Create final output file (.bin) from ELF output file.
 %.bin: %.elf
 	@echo "  [objcopy]  $@"
@@ -345,6 +347,11 @@ run: $(TARGET).$(IMGEXT)
 	@echo "  [nm]       $@"
 	$(HIDE)$(NM) -n $< > $@
 
+# Extract warm start address
+%.warm: %.elf
+	$(HIDE)$(OBJDUMP) -t $< | grep warm_start | awk '{ print $$1 }' > $@
+	@echo "  [objcopy]  $@ (extract warm start address)"
+	@cat $@
 
 # Link: create ELF output file from object files.
 .SECONDARY : $(TARGET_ELF)

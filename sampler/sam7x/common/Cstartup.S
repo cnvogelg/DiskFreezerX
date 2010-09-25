@@ -252,6 +252,9 @@ already_remapped:
 /*------------------------------------------------------------------------------
 //*- Setup the stack for each mode
 //*-------------------------------*/
+			.global warm_start
+warm_start:
+
                 mov     r0,r13 /* see (**) */
 
 /*- Set up Fast Interrupt Mode and set FIQ Mode Stack*/
