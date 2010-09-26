@@ -6,31 +6,82 @@
 #include "delay.h"
 #include "util.h"
 
+// max number of index pos
+#define MAX_INDEX 20
+
+// ----- read track state -----
+
+// index store
+static u32 index_pos[MAX_INDEX];
+static u32 max_index = 5;
+static u32 got_index = 0;
+
+static read_status_t read_status;
+
+// ----- status -----
+
+void reset_status(void)
+{
+  read_status.index_overruns = 0;
+  read_status.cell_overruns  = 0;
+  read_status.cell_overflows = 0;
+  read_status.data_size = 0;
+  read_status.data_overruns = 0;
+
+  got_index = 0;
+}
+
+read_status_t *trk_read_get_status(void)
+{
+  return &read_status;
+}
+
+// ----- manage index counter -----
+
+void trk_read_set_max_index(u32 num_index)
+{
+    if(num_index <= MAX_INDEX) {
+        max_index = num_index;
+    }
+}
+
+u32  trk_read_get_num_index(void)
+{
+    return got_index;
+}
+
+u32  trk_read_get_index_pos(u32 i)
+{
+    return index_pos[i];
+}
+
 // ------ index -----
 // try to find 5 index markers on disk
 // and measure their distance
 
 u32 trk_read_count_index(void)
 {
-    uart_send_string((u08 *)"index search");
-    uart_send_crlf();
+    reset_status();
+
+    uart_send_string((u08 *)"index search. max=");
+    uart_send_hex_dword_crlf(max_index);
 
    // setup index timer
     timer1_init();
 
-    int index_counter = 0;
-    u32 a[5] = { 0,0,0,0,0 };
+    u32 index_counter = 0;
     u32 load_overruns = 0;
+    u32 max = max_index;
 
     // measure 5 index runs
     timer1_enable();
     timer1_trigger();
 
     // wait for index
-    while(index_counter < 5) {
+    while(index_counter < max) {
         u32 status = timer1_get_status();
         if(status & AT91C_TC_LDRAS) {
-            a[index_counter] = timer1_get_capture_a();
+            index_pos[index_counter] = timer1_get_capture_a();
             index_counter++;
         }
         // missed a load
@@ -49,8 +100,8 @@ u32 trk_read_count_index(void)
     }
     if(index_counter > 0) {
         for(int i=0;i<index_counter;i++) {
-            uart_send_string((u08 *)"A=");
-            uart_send_hex_dword_crlf(a[i]);
+            uart_send_string((u08 *)"pos=");
+            uart_send_hex_dword_crlf(index_pos[i]);
         }
     } else {
         uart_send_string((u08 *)"no index found!");
@@ -58,6 +109,10 @@ u32 trk_read_count_index(void)
     }
 
     timer1_disable();
+
+    // store in global status
+    read_status.index_overruns = load_overruns;
+    got_index = index_counter;
 
     return index_counter;
 }
@@ -67,8 +122,12 @@ u32 trk_read_count_index(void)
 
 u32 trk_read_count_data(void)
 {
+    reset_status();
+
     timer1_init();
     timer2_init();
+
+    u32 max = max_index;
 
     // wait for an index
     timer1_enable();
@@ -98,7 +157,8 @@ u32 trk_read_count_data(void)
     timer2_trigger();
     u32 data_counter = 0;
     u32 cell_overruns = 0;
-    while(index_counter < 2) {
+    index_counter = 0;
+    while(index_counter < max) {
 
         // check bit cell timer
         u32 status = timer2_get_status();
@@ -136,6 +196,12 @@ u32 trk_read_count_data(void)
 
     uart_send_string((u08 *)"data found=");
     uart_send_hex_dword_crlf(data_counter);
+
+    // store in global status
+    read_status.index_overruns = index_overruns;
+    read_status.cell_overruns = cell_overruns;
+    got_index = index_counter;
+
     return data_counter;
 }
 
@@ -145,6 +211,8 @@ static u16 table[256];
 
 static int do_read_data_spectrum(void)
 {
+  reset_status();
+
   timer1_init();
   timer2_init();
 
@@ -169,7 +237,7 @@ static int do_read_data_spectrum(void)
 
   // no index found!
   if(index_counter == 0) {
-      timer2_disable();
+      timer1_disable();
       return 0;
   }
 
@@ -179,7 +247,9 @@ static int do_read_data_spectrum(void)
   u32 cell_overruns = 0;
   u32 data_counter = 0;
   u32 value_overflows = 0;
-  while(index_counter < 2) {
+  index_counter = 0;
+  u32 max = max_index;
+  while(index_counter < max) {
       u32 status = timer2_get_status();
       if(status & AT91C_TC_LDRAS) {
           u16 delta = (u16)timer2_get_capture_a();
@@ -220,6 +290,11 @@ static int do_read_data_spectrum(void)
       uart_send_string((u08 *)"value overflows: ");
       uart_send_hex_dword_crlf(value_overflows);
   }
+
+  read_status.index_overruns = index_overruns;
+  read_status.cell_overruns  = cell_overruns;
+  read_status.cell_overflows = value_overflows;
+  got_index = index_counter;
 
   return data_counter;
 }
@@ -337,8 +412,11 @@ void trk_read_real(void)
     u32 cell_overflows = 0;
     u32 cell_overruns = 0;
     u32 my_data_counter = 0;
-    u32 index_counter = 0;
+    u32 index_counter = max_index;
     u32 index_overruns = 0;
+    u32 idx_pos[MAX_INDEX];
+
+    reset_status();
     
     uart_send_string((u08 *)"read track: ");
     uart_send_crlf();
@@ -376,10 +454,13 @@ void trk_read_real(void)
     u32 status = timer2_get_status();
     u32 delta = timer2_get_capture_a();
 
-    while(index_counter < 5) {
+    // core loop for reading a track
+    while(index_counter > 0) {
 
+        // cell sample timer
         status = timer2_get_status();
         if(status & AT91C_TC_LDRAS) {
+            // new cell delta
             delta = timer2_get_capture_a();
 
             // overflow?
@@ -395,15 +476,18 @@ void trk_read_real(void)
             // index marker was found
             u32 statusi = timer1_get_status();
             if(statusi & AT91C_TC_LDRAS) {
-                timer1_get_capture_a();
+                u32 index_delta = timer1_get_capture_a();
                 spi_bulk_write_byte(MARKER_INDEX);
                 my_data_counter++;
-                index_counter++;
+                index_counter--;
+                idx_pos[index_counter] = index_delta;
             }
+            // oops. index overun?!
             if(statusi & AT91C_TC_LOVRS) {
                 index_overruns++;
             }
 
+            // handle SPI transfer
             spi_bulk_handle();
         }
         if(status & AT91C_TC_LOVRS) {
@@ -428,6 +512,18 @@ void trk_read_real(void)
     if(cell_overruns > 0) {
         uart_send_string((u08 *)"cell overruns:  ");
         uart_send_hex_dword_crlf(cell_overruns);
+    }
+
+    // update status
+    read_status.index_overruns = index_overruns;
+    read_status.cell_overruns  = cell_overruns;
+    read_status.cell_overflows = cell_overflows;
+    read_status.data_size = my_data_counter;
+    read_status.data_overruns = spi_write_overruns;
+    got_index = index_counter;
+
+    for(int i=0;i<index_counter;i++) {
+        index_pos[i] = idx_pos[i];
     }
 }
 

@@ -33,6 +33,13 @@ static void set_dword(u32 val)
     out_size += 8;
 }
 
+static void set_word(u16 val)
+{
+    word_to_hex(val, out);
+    out += 4;
+    out_size += 4;
+}
+
 static u08 parse_hex_byte(u08 def)
 {
     if(in_size < 2)
@@ -117,7 +124,36 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
             cmd_side_bottom();
             set_result(0);
             break;
+
+        case 'i':
+            num = parse_hex_byte(5);
+            trk_read_set_max_index(num);
+            break;
         
+        case 'j':
+            {
+              // return all indices
+              u32 num_index = trk_read_get_num_index();
+              set_result(num_index * 2);
+              for(u32 i=0;i<num_index;i++) {
+                  set_word(trk_read_get_index_pos(i));
+              }
+            }
+            break;
+
+        case 'r':
+            {
+              // read status
+              read_status_t * status = trk_read_get_status();
+              set_result(5 * 4);
+              set_dword(status->index_overruns);
+              set_dword(status->cell_overruns);
+              set_dword(status->cell_overflows);
+              set_dword(status->data_size);
+              set_dword(status->data_overruns);
+            }
+            break;
+
             // ----- Track Read Commands -----
         case 'I':
             {

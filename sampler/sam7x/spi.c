@@ -1,7 +1,6 @@
 #include "spi.h"
 #include "spi_low.h"
 
-#include "uartutil.h"
 #include "delay.h"
 
 static u08 spi_buffer[4][SPI_BUFFER_SIZE];
@@ -89,9 +88,6 @@ void spi_bulk_handle(void)
 
 u32 spi_bulk_end(void)
 {
-  uart_send_string((u08 *)"flushing");
-  uart_send_crlf();
-
   // wait for next DMA buffer to become empty
   int i;
   for(i=1000 * 1000;i>0;i--) {
@@ -122,13 +118,9 @@ u32 spi_bulk_end(void)
 
       if(i==0) {
           error = 1;
-          uart_send_string((u08 *)"TIMEOUT (2)");
-          uart_send_crlf();
       }
   } else {
       error = 1;
-      uart_send_string((u08 *)"TIMEOUT (1)");
-      uart_send_crlf();
   }
 
   // disable bulk DMA
@@ -136,9 +128,6 @@ u32 spi_bulk_end(void)
 
   // set read bytes to 0 again
   spi_write_byte(0);
-
-  uart_send_string((u08 *)"stopping");
-  uart_send_crlf();
 
   return error;
 }

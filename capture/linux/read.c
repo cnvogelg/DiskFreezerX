@@ -1,6 +1,9 @@
 #include <stdio.h>
+#include <stdint.h>
+#include <arpa/inet.h>
 
 #include "spi.h"
+#include "read.h"
 #include "spi_bulk.h"
 #include "config.h"
 #include "cmd_parse.h"
@@ -15,6 +18,84 @@ static int control_floppy(spi_t *spi,const char *cmd)
         printf("  [result: %d]\n", result);
     }
     return result;    
+}
+
+static int get_status(spi_t *spi,read_status_t *status)
+{
+	if(config.verbose>0) {
+		printf("  [get status (cmd: 'r')]\n");
+	}
+	parse_result_t pr;
+	int result = cmd_parse_execute(spi, "r", 1, &pr);
+	if(config.verbose>0) {
+		printf("  [result: %d]\n", result);
+	}
+
+	if(result == 1) {
+		if(pr.size == 5 * 4) {
+			uint32_t *ptr = (uint32_t *)pr.data;
+			status->index_overruns = ntohl(ptr[0]);
+			status->cell_overruns  = ntohl(ptr[1]);
+			status->cell_overflows = ntohl(ptr[2]);
+			status->data_size      = ntohl(ptr[3]);
+			status->data_overruns  = ntohl(ptr[4]);
+			if(config.verbose>0) {
+				printf("  [index_ovveruns=%u, cell_overruns=%u, cell_overflows=%u, data_size=%u, data_overruns=%u]\n",
+						status->index_overruns,
+						status->cell_overruns,
+						status->cell_overflows,
+						status->data_size,
+						status->data_overruns);
+			}
+		} else {
+			printf("Invalid status size returned from sampler: %d\n", pr.size);
+			return -1;
+		}
+	} else {
+		printf("Error getting status from sampler: %d\n", result);
+	}
+
+	return result;
+}
+
+static int check_status(spi_t *spi, uint32_t decoded_size)
+{
+	// read status from sampler
+	read_status_t status;
+	if(get_status(spi, &status)!=1) {
+		return -1;
+	}
+
+	// check overflows/overruns
+	int fails = 0;
+	if(status.index_overruns>0) {
+		fails ++;
+	}
+	if(status.cell_overruns>0) {
+		fails ++;
+	}
+	if(status.cell_overflows>0) {
+		fails ++;
+	}
+	if(status.data_overruns>0) {
+		fails ++;
+	}
+	if(fails > 0) {
+		printf("\n  Overruns: index=%u, cell=%u, data=%u   Overflows: cell=%u\n",
+				status.index_overruns,
+				status.cell_overruns,
+				status.data_overruns,
+				status.cell_overflows);
+
+	}
+
+	// check data size
+	if(status.data_size != decoded_size) {
+		printf("\nData size mismatch: sent=%u != got=%u\n",status.data_size, decoded_size);
+		return -1;
+	}
+
+	return fails;
 }
 
 static int start_floppy(spi_t *spi)
@@ -93,7 +174,7 @@ int read_dsk(spi_t *spi)
         }
         uint8_t *raw_blocks;
         uint32_t num_blocks;
-        int error = spi_bulk_read_raw_blocks(spi, config.wait_blocks, config.max_blocks, &raw_blocks, &num_blocks);
+        error = spi_bulk_read_raw_blocks(spi, config.wait_blocks, config.max_blocks, &raw_blocks, &num_blocks);
 
         // reading from SPI failed!
         if(error < 0) {
@@ -129,6 +210,13 @@ int read_dsk(spi_t *spi)
             printf("  [decoded %d/%x bytes, max frame size: %d]\n", size, size, max_frame_size);
         }
         free(raw_blocks);
+
+        // get status
+        if(check_status(spi, size)<0) {
+        	printf("SAMPLER FAILED!\n");
+        	error = -3;
+        	break;
+        }
 
         // write raw track data
         FILE *fh = fopen(name,"w");
@@ -238,6 +326,11 @@ int read_trk(spi_t *spi)
     }
     free(raw_blocks);
 
+    // check status
+    if(check_status(spi, size)<0) {
+    	printf("SAMPLER FAILED\n");
+    	return -3;
+    }
 
     // write data
     const char *output_file = config.args[0];

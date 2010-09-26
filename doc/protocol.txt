@@ -57,8 +57,8 @@ Commands
     o           motor on
     f           motor off
     s           seek to track zero
-    +           step to next track
-    -           step to previous track
+    + <xx>      step to forward <xx> tracks
+    - <xx>      step to backwar <xx> tracks
     z           is track zero?
     
   Side select:
@@ -70,6 +70,23 @@ Commands
     
     x           leave program
 
+  Options:
+
+    i <xx>      read up to <xx> index markers per track, i.e. rotations
+
+    j           return index lengths
+	r			read status
+					u32		index_overruns
+					u32		cell overruns
+					u32		cell overflows
+					u32		data size
+					u32		data overflows
+
+  Test Routines:
+
+	I			measure index markers
+	D			count data samples
+	S			dump spectrum of data samples
 
 2. SPI Implementation
 ---------------------

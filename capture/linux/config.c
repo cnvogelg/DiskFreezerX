@@ -9,7 +9,7 @@ config_t config = {
     .sides = SIDES_ALL,
 
     .device = "/dev/spidev4.0",
-    .speed = 3000000,
+    .speed = 6000000,
     .wait_blocks = 100 * 5,
     .max_blocks = 100 * 5,
     .spi_mode = 1,
@@ -94,8 +94,8 @@ int config_parse_opts(int argc, char *argv[])
             break;
         case 's':
             config.sides = optarg[0];
-            if((config.sides!=SIDES_ALL)||
-               (config.sides!=SIDES_TOP)||
+            if((config.sides!=SIDES_ALL)&&
+               (config.sides!=SIDES_TOP)&&
                (config.sides!=SIDES_BOTTOM)) {
                 printf("ERROR: invalid sides given: %c", config.sides);
                 print_usage(prog);
