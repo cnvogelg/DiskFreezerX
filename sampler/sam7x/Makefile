@@ -64,7 +64,7 @@ TARGET = dfx-sampler
 
 # List C source files here. (C dependencies are automatically generated.)
 # use file-extension c for "c-only"-files
-SRC += spi_low.c spi.c cmd.c cmd_spi.c cmd_parse.c trk_read.c
+SRC += spi_low.c spi.c cmd.c cmd_spi.c cmd_parse.c trk_read.c pit.c
 SRC += led.c delay.c floppy-low.c uart.c uartutil.c util.c cmdline.c timer.c 
 SRC += $(TARGET).c
 

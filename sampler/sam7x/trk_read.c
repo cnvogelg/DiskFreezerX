@@ -5,6 +5,7 @@
 #include "uartutil.h"
 #include "delay.h"
 #include "util.h"
+#include "pit.h"
 
 // max number of index pos
 #define MAX_INDEX 20
@@ -58,6 +59,17 @@ u32  trk_read_get_index_pos(u32 i)
 // ------ index -----
 // try to find 5 index markers on disk
 // and measure their distance
+static volatile u32 idx_counter;
+static volatile u32 idx_flag;
+
+#define NO_IDX_COUNT 0xf0000000
+
+static void index_func(void)
+{
+    index_pos[idx_counter] = pit_peek();
+    idx_counter++;
+    idx_flag=1;
+}
 
 u32 trk_read_count_index(void)
 {
@@ -66,40 +78,23 @@ u32 trk_read_count_index(void)
     uart_send_string((u08 *)"index search. max=");
     uart_send_hex_dword_crlf(max_index);
 
-   // setup index timer
-    timer1_init();
+    idx_counter = 0;
 
-    u32 index_counter = 0;
-    u32 load_overruns = 0;
-    u32 max = max_index;
+    pit_enable();
+    pit_reset();
 
-    // measure 5 index runs
-    timer1_enable();
-    timer1_trigger();
+    floppy_enable_index_intr(index_func);
 
     // wait for index
-    while(index_counter < max) {
-        u32 status = timer1_get_status();
-        if(status & AT91C_TC_LDRAS) {
-            index_pos[index_counter] = timer1_get_capture_a();
-            index_counter++;
-        }
-        // missed a load
-        if(status & AT91C_TC_LOVRS) {
-            load_overruns ++;
-        }
-        // counter overflow!
-        if(status & AT91C_TC_COVFS) {
+    while(idx_counter<max_index) {
+        // no index found
+        if(pit_peek() > NO_IDX_COUNT) {
             break;
         }
     }
 
-    if(load_overruns > 0) {
-        uart_send_string((u08 *)"overruns=");
-        uart_send_hex_dword_crlf(load_overruns);
-    }
-    if(index_counter > 0) {
-        for(int i=0;i<index_counter;i++) {
+    if(idx_counter > 0) {
+        for(int i=0;i<idx_counter;i++) {
             uart_send_string((u08 *)"pos=");
             uart_send_hex_dword_crlf(index_pos[i]);
         }
@@ -108,13 +103,14 @@ u32 trk_read_count_index(void)
         uart_send_crlf();
     }
 
-    timer1_disable();
+    floppy_disable_index_intr();
+
+    pit_disable();
 
     // store in global status
-    read_status.index_overruns = load_overruns;
-    got_index = index_counter;
+    got_index = idx_counter;
 
-    return index_counter;
+    return idx_counter;
 }
 
 // ----- count data -----
@@ -124,32 +120,27 @@ u32 trk_read_count_data(void)
 {
     reset_status();
 
-    timer1_init();
     timer2_init();
 
     u32 max = max_index;
 
+    idx_counter = 0;
+
+    pit_enable();
+    pit_reset();
+
+    floppy_enable_index_intr(index_func);
+
     // wait for an index
-    timer1_enable();
-    timer1_trigger();
-    int index_counter = 0;
-    u32 index_overruns = 0;
-    while(index_counter < 1) {
-        u32 status = timer1_get_status();
-        if(status & AT91C_TC_LDRAS) {
-            index_counter++;
-            timer1_get_capture_a();
-        }
-        if(status & AT91C_TC_LOVRS) {
-            index_overruns ++;
-        }
-        if(status & AT91C_TC_COVFS) {
+    while(idx_counter < 1) {
+        // no index found!
+        if(pit_peek() > NO_IDX_COUNT) {
             break;
         }
     }
 
-    if(index_counter == 0) {
-        timer1_disable();
+    // fatal: no index found
+    if(idx_counter == 0) {
         return 0;
     }
 
@@ -157,8 +148,8 @@ u32 trk_read_count_data(void)
     timer2_trigger();
     u32 data_counter = 0;
     u32 cell_overruns = 0;
-    index_counter = 0;
-    while(index_counter < max) {
+    idx_counter = 0;
+    while(idx_counter < max) {
 
         // check bit cell timer
         u32 status = timer2_get_status();
@@ -166,16 +157,6 @@ u32 trk_read_count_data(void)
             // found a bitcell delta
             data_counter ++;
             timer2_get_capture_a();
-
-            // check index timer
-            u32 statusi = timer1_get_status();
-            if(statusi & AT91C_TC_LDRAS) {
-                index_counter ++;
-                timer1_get_capture_a();
-            }
-            if(statusi & AT91C_TC_LOVRS) {
-                index_overruns++;
-            }
         }
         if(status & AT91C_TC_LOVRS) {
             cell_overruns ++;
@@ -183,12 +164,10 @@ u32 trk_read_count_data(void)
     }
 
     timer2_disable();
-    timer1_disable();
 
-    if(index_overruns > 0) {
-        uart_send_string((u08 *)"index overruns: ");
-        uart_send_hex_dword_crlf(index_overruns);
-    }
+    floppy_disable_index_intr();
+    pit_disable();
+
     if(cell_overruns > 0) {
         uart_send_string((u08 *)"cell  overruns: ");
         uart_send_hex_dword_crlf(cell_overruns);
@@ -198,9 +177,8 @@ u32 trk_read_count_data(void)
     uart_send_hex_dword_crlf(data_counter);
 
     // store in global status
-    read_status.index_overruns = index_overruns;
     read_status.cell_overruns = cell_overruns;
-    got_index = index_counter;
+    got_index = idx_counter;
 
     return data_counter;
 }
@@ -211,92 +189,72 @@ static u16 table[256];
 
 static int do_read_data_spectrum(void)
 {
-  reset_status();
+    reset_status();
 
-  timer1_init();
-  timer2_init();
+    timer2_init();
 
-  // wait for an index
-  timer1_enable();
-  timer1_trigger();
-  int index_counter = 0;
-  u32 index_overruns = 0;
-  while(index_counter < 1) {
-      u32 status = timer1_get_status();
-      if(status & AT91C_TC_LDRAS) {
-          index_counter++;
-          timer1_get_capture_a();
-      }
-      if(status & AT91C_TC_LOVRS) {
-          index_overruns ++;
-      }
-      if(status & AT91C_TC_COVFS) {
-          break;
-      }
-  }
+    idx_counter = 0;
 
-  // no index found!
-  if(index_counter == 0) {
-      timer1_disable();
-      return 0;
-  }
+    pit_enable();
+    pit_reset();
 
-  // core loop: wait for one index -> one track
-  timer2_enable();
-  timer2_trigger();
-  u32 cell_overruns = 0;
-  u32 data_counter = 0;
-  u32 value_overflows = 0;
-  index_counter = 0;
-  u32 max = max_index;
-  while(index_counter < max) {
-      u32 status = timer2_get_status();
-      if(status & AT91C_TC_LDRAS) {
-          u16 delta = (u16)timer2_get_capture_a();
-          if(delta > 255)
-              value_overflows++;
-          else {
-              table[delta]++;
-          }
-          data_counter++;
+    floppy_enable_index_intr(index_func);
 
-          u32 statusi = timer1_get_status();
-          if(statusi & AT91C_TC_LDRAS) {
-              timer1_get_capture_a();
-              index_counter++;
-          }
-          if(statusi & AT91C_TC_LOVRS) {
-              index_overruns++;
-          }
+    // wait for an index
+    while(idx_counter < 1) {
+        // no index found!
+        if(pit_peek() > NO_IDX_COUNT) {
+            break;
+        }
+    }
 
-      }
-      if(status & AT91C_TC_LOVRS) {
-          cell_overruns++;
-      }
-  }
+    // fatal: no index found
+    if(idx_counter == 0) {
+        return 0;
+    }
 
-  timer2_disable();
-  timer1_disable();
+    // core loop: wait for one index -> one track
+    timer2_enable();
+    timer2_trigger();
+    u32 cell_overruns = 0;
+    u32 data_counter = 0;
+    u32 value_overflows = 0;
+    idx_counter = 0;
+    u32 max = max_index;
+    while(idx_counter < max) {
+        u32 status = timer2_get_status();
+        if(status & AT91C_TC_LDRAS) {
+            u16 delta = (u16)timer2_get_capture_a();
+            if(delta > 255)
+                value_overflows++;
+            else {
+                table[delta]++;
+            }
+            data_counter++;
 
-  if(index_overruns > 0) {
-      uart_send_string((u08 *)"index overruns: ");
-      uart_send_hex_dword_crlf(index_overruns);
-  }
-  if(cell_overruns > 0) {
-      uart_send_string((u08 *)"cell  overruns: ");
-      uart_send_hex_dword_crlf(cell_overruns);
-  }
-  if(value_overflows > 0) {
-      uart_send_string((u08 *)"value overflows: ");
-      uart_send_hex_dword_crlf(value_overflows);
-  }
+        }
+        if(status & AT91C_TC_LOVRS) {
+            cell_overruns++;
+        }
+    }
 
-  read_status.index_overruns = index_overruns;
-  read_status.cell_overruns  = cell_overruns;
-  read_status.cell_overflows = value_overflows;
-  got_index = index_counter;
+    timer2_disable();
+    floppy_disable_index_intr();
 
-  return data_counter;
+    if(cell_overruns > 0) {
+        uart_send_string((u08 *)"cell  overruns: ");
+        uart_send_hex_dword_crlf(cell_overruns);
+    }
+    if(value_overflows > 0) {
+        uart_send_string((u08 *)"value overflows: ");
+        uart_send_hex_dword_crlf(value_overflows);
+    }
+
+    read_status.cell_overruns  = cell_overruns;
+    read_status.cell_overflows = value_overflows;
+    got_index = idx_counter;
+
+    return data_counter;
 }
 
 u32 trk_read_data_spectrum(void)
@@ -407,14 +365,18 @@ void trk_read_dummy(u32 num)
 
 // ----- read a track -----
 
+static void read_index_func(void)
+{
+  idx_flag = pit_peek();
+}
+
 void trk_read_real(void)
 {
     u32 cell_overflows = 0;
     u32 cell_overruns = 0;
     u32 my_data_counter = 0;
     u32 index_counter = max_index;
-    u32 index_overruns = 0;
-    u32 idx_pos[MAX_INDEX];
+    u32 my_index[MAX_INDEX];
 
     reset_status();
     
@@ -422,30 +384,23 @@ void trk_read_real(void)
     uart_send_crlf();
 
     // prepare timers
-    timer1_init();
     timer2_init();
+
+    idx_counter = 0;
+    pit_enable();
+    pit_reset();
+
+    floppy_enable_index_intr(read_index_func);
 
     // begin bulk transfer
     spi_bulk_begin();
 
     // wait for an index marker
-    timer1_enable();
-    timer1_trigger();
-    while(1) {
-        u32 status = timer1_get_status();
-        if(status & AT91C_TC_LDRAS) {
-            timer1_get_capture_a();
-            break;
-        }
-        if(status & AT91C_TC_LOVRS) {
-            index_overruns ++;
-        }
-        if(status & AT91C_TC_COVFS) {
-            break;
-        }
-
+    idx_flag = 0;
+    while(!idx_flag) {
         spi_bulk_handle();
     }
+    idx_flag = 0;
 
     timer2_enable();
     timer2_trigger();
@@ -474,17 +429,12 @@ void trk_read_real(void)
             my_data_counter++;
 
             // index marker was found
-            u32 statusi = timer1_get_status();
-            if(statusi & AT91C_TC_LDRAS) {
-                u32 index_delta = timer1_get_capture_a();
+            if(idx_flag) {
                 spi_bulk_write_byte(MARKER_INDEX);
                 my_data_counter++;
                 index_counter--;
-                idx_pos[index_counter] = index_delta;
-            }
-            // oops. index overun?!
-            if(statusi & AT91C_TC_LOVRS) {
-                index_overruns++;
+                my_index[index_counter] = idx_flag;
+                idx_flag = 0;
             }
 
             // handle SPI transfer
@@ -496,15 +446,13 @@ void trk_read_real(void)
     }
 
     timer2_disable();
-    timer1_disable();
     spi_bulk_end();
+
+    floppy_disable_index_intr();
+    pit_disable();
 
     uart_send_string((u08 *)"data counter: ");
     uart_send_hex_dword_crlf(my_data_counter);
-    if(index_overruns > 0) {
-        uart_send_string((u08 *)"index overruns: ");
-        uart_send_hex_dword_crlf(index_overruns);
-    }
     if(cell_overflows > 0) {
         uart_send_string((u08 *)"cell overflows: ");
         uart_send_hex_dword_crlf(cell_overflows);
@@ -515,15 +463,22 @@ void trk_read_real(void)
     }
 
     // update status
-    read_status.index_overruns = index_overruns;
     read_status.cell_overruns  = cell_overruns;
     read_status.cell_overflows = cell_overflows;
     read_status.data_size = my_data_counter;
     read_status.data_overruns = spi_write_overruns;
-    got_index = index_counter;
+    got_index = idx_counter;
 
-    for(int i=0;i<index_counter;i++) {
-        index_pos[i] = idx_pos[i];
+    // copy index pos
+    for(int i=0;i<max_index;i++) {
+        index_pos[i] = my_index[max_index-1-i];
+
+        if(i > 0) {
+            uart_send_string((u08 *)"    delta:  ");
+            uart_send_hex_dword_crlf(index_pos[i] - index_pos[i-1]);
+        }
+        uart_send_string((u08 *)"index pos:  ");
+        uart_send_hex_dword_crlf(index_pos[i]);
     }
 }
 
