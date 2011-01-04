@@ -154,6 +154,21 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
             }
             break;
 
+        case 'y':
+          {
+            cmd_floppy_enable();
+            cmd_motor_on();
+
+            for(int i=0;i<5;i++) {
+                trk_read_count_data();
+            }
+
+            cmd_motor_off();
+            cmd_floppy_disable();
+            set_result(0);
+          }
+          break;
+
             // ----- Track Read Commands -----
         case 'I':
             {

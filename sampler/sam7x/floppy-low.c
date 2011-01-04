@@ -1,5 +1,6 @@
 #include "floppy-low.h"
 #include "delay.h"
+#include "uartutil.h"
 
 // Hardware Config of Floppy Lines:
 
@@ -57,7 +58,7 @@ void floppy_init(void)
 void floppy_enable_index_intr(func f)
 {
     // Configure -> ext IRQ1 is index
-    AT91F_PIO_CfgPeriph(AT91C_BASE_PIOA, INDEX, 0);
+    AT91F_PIO_CfgPeriph(AT91C_BASE_PIOA, INDEX, READ_DATA);
     // open external IRQ1
     AT91F_AIC_ConfigureIt(AT91C_BASE_AIC, AT91C_ID_IRQ1, 
                           INDEX_INTERRUPT_LEVEL, 

@@ -3,8 +3,8 @@
 
 #include "delay.h"
 
-static u08 spi_buffer[4][SPI_BUFFER_SIZE];
-static u32 spi_write_index;
+u08 spi_buffer[4][SPI_BUFFER_SIZE];
+u32 spi_write_index;
 
 u08 *spi_write_ptr;
 u32  spi_write_size;
@@ -66,24 +66,6 @@ void spi_bulk_begin(void)
   spi_low_tx_dma_set_first(spi_buffer[2], SPI_BUFFER_SIZE);
   spi_low_tx_dma_set_next(spi_buffer[3], SPI_BUFFER_SIZE);
   spi_low_tx_dma_enable();
-}
-
-void spi_bulk_handle(void)
-{
-  // next DMA request is empty again -> fill it!
-  if(spi_low_tx_dma_next_empty()) {
-      // write End Of Frame in current write buffer
-      spi_write_ptr[spi_write_size] = SPI_BULK_EOF;
-
-      // make current write buffer the next DMA buffer
-      u08 *ptr = spi_buffer[spi_write_index];
-      spi_low_tx_dma_set_next(ptr, SPI_BUFFER_SIZE);
-
-      // advance to new write buffer
-      spi_write_index = (spi_write_index + 1) & 3;
-      spi_write_size = 0;
-      spi_write_ptr = spi_buffer[spi_write_index] + 1; // skip BOF marker
-  }
 }
 
 u32 spi_bulk_end(void)

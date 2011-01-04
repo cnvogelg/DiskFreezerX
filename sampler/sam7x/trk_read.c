@@ -8,7 +8,8 @@
 #include "pit.h"
 
 // max number of index pos
-#define MAX_INDEX 20
+#define MAX_INDEX      16
+#define MAX_OVERFLOWS  32
 
 // ----- read track state -----
 
@@ -377,6 +378,7 @@ void trk_read_real(void)
     u32 my_data_counter = 0;
     u32 index_counter = max_index;
     u32 my_index[MAX_INDEX];
+    u32 cell_overflow_values[MAX_OVERFLOWS];
 
     reset_status();
     
@@ -421,6 +423,7 @@ void trk_read_real(void)
             // overflow?
             if(delta >= LAST_VALUE) {
                 spi_bulk_write_byte(MARKER_OVERFLOW);
+                cell_overflow_values[cell_overflows] = delta;
                 cell_overflows++;
             } else {
                 u08 d = (u08)(delta & 0xff);
@@ -456,6 +459,10 @@ void trk_read_real(void)
     if(cell_overflows > 0) {
         uart_send_string((u08 *)"cell overflows: ");
         uart_send_hex_dword_crlf(cell_overflows);
+        for(int i=0;i<cell_overflows;i++) {
+            uart_send_string((u08 *)"cell counter:   ");
+            uart_send_hex_dword_crlf(cell_overflow_values[i]);
+        }
     }
     if(cell_overruns > 0) {
         uart_send_string((u08 *)"cell overruns:  ");

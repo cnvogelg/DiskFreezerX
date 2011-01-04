@@ -6,6 +6,9 @@
 /* maximum size of a command or a result */
 #define CMD_MAX_SIZE 0x3f
 
+/* debug command get via uart */
+extern u08 cmd_uart_get_next(u08 **data);
+
 /* get next command via spi and handle internal requests from master */
 extern u08  cmd_spi_get_next(u08 **data);
 

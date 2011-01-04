@@ -14,8 +14,8 @@ int main(void)
 {
     // board setup stuff
     led_init();
-    floppy_init();
     uart_init();
+    floppy_init();
     //timer_init();
     spi_init();
     spi_enable();
@@ -33,7 +33,13 @@ int main(void)
         
         // get next command via SPI
         u08 *cmd;
+
+#define USE_UART_INPUT
+#ifdef USE_UART_INPUT
+        u08 len = cmd_uart_get_next(&cmd);
+#else
         u08 len = cmd_spi_get_next(&cmd);
+#endif
 
         led_green(0);
         
