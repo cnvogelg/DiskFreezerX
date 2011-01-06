@@ -1,10 +1,10 @@
 /*
- * main.c - main loop
+ * console.h - Console on screen
  *
  * Written by
  *  Christian Vogelgsang <chris@vogelgsang.org>
  *
- * This file is part of dtv2ser.
+ * This file is part of dfx-capture-ctrl.
  * See README for copyright notice.
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -24,29 +24,18 @@
  *
  */
 
+#ifndef CONSOLE_H
+#define CONSOLE_H
+
 #include "global.h"
-#include "uart.h"
-#include "timer.h"
-#include "display.h"
-#include "console.h"
 
-int main (void){
-  // board init. e.g. switch off watchdog
-  board_init();  
-  // setup timer
-  timer_init();
-  // setup serial
-  uart_init();
+#define CONSOLE_WIDTH   40
+#define CONSOLE_HEIGHT  30
+#define CONSOLE_TOTAL   (CONSOLE_WIDTH * CONSOLE_HEIGHT)
 
-  // display init()
-  display_init(2);
-  console_init();
-  console_puts((const u08 *)"AVRcon:\n");
-  
-  // main loop
-  while(1) {
-      u08 ch = uart_read();
-      console_putch(ch);
-  }
-  return 0;
-}
+extern void console_init(void);
+extern void console_putch(u08 ch);
+extern void console_puts(const u08 *str);
+
+#endif
+

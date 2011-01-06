@@ -35,10 +35,10 @@ void uart_init(void);
 // is rx data available?
 u08 uart_read_data_available(void);
 
-// read a byte (from buffer) (with cts handshaking)
+// read a byte
 u08 uart_read(void);
 
-// write a byte (with rts handshaking)
+// write a byte
 void uart_send(u08 data);
 
 #endif

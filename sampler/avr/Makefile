@@ -41,7 +41,7 @@ MCU ?= atmega328
 LDR_MCU ?= m328p
 F_CPU = 16000000
 MAX_SIZE = 14336
-UART_BAUD = 250000
+UART_BAUD = 57600
 #DEFINES += IGNORE_RTS
 
 LDR_PROG = arduino
@@ -76,7 +76,7 @@ OUTPUT = $(OUTDIR)/$(BASENAME)
 # source files
 SRC := $(BOARD).c
 SRC += util.c uart.c uartutil.c timer.c
-SRC += display.c topaz.c main.c
+SRC += display.c topaz.c console.c main.c
 
 # output format
 FORMAT = ihex
