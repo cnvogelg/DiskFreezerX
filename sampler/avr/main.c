@@ -28,19 +28,7 @@
 #include "uart.h"
 #include "timer.h"
 #include "rram.h"
-
-static void error_loop(u08 num)
-{
-    while(1) {
-        for(u08 i=0;i<num;i++) {
-            led0_on();
-            timer_delay_10ms(10);
-            led0_off();
-            timer_delay_10ms(10);            
-        }
-        timer_delay_10ms(100);
-    }
-}
+#include "display.h"
 
 int main (void){
   // board init. e.g. switch off watchdog
@@ -50,22 +38,16 @@ int main (void){
   // setup serial
   uart_init();
 
-  // ripple RAM init
-  rram_init();
+  // display init()
+  display_init(2);
+  display_clear(COLOR_BLACK);
   
-  // test RAM
-  u32 errors = rram_test();
-  if(errors != 0) {
-      error_loop(3);
-  }
-
+  display_draw_string(0,0,(const u08 *)"DiskFreezerX");
+  display_set_font_half(1);
+  display_draw_string(0,2,(const u08 *)"Copyright \xa9 2011 C. Vogelgsang");
+  
   // main loop
   while(1) {
-    led0_on();
-    timer_delay_10ms(100);
-    led0_off();
-    timer_delay_10ms(100);
   }
-  
   return 0;
 }

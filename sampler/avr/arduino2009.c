@@ -39,7 +39,10 @@ void ard2009_board_init(void)
    WDTCSR |= _BV(WDCE) | _BV(WDE);
    WDTCSR = 0;
    sei();
+}
 
+void led_init(void)
+{
    // setup ports for LED
    LED0_DDR  |= LED0_MASK;
    LED0_PORT &= ~LED0_MASK;

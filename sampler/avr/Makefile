@@ -76,7 +76,7 @@ OUTPUT = $(OUTDIR)/$(BASENAME)
 # source files
 SRC := $(BOARD).c
 SRC += util.c uart.c uartutil.c timer.c
-SRC += rram.c main.c
+SRC += display.c topaz.c main.c
 
 # output format
 FORMAT = ihex
@@ -234,6 +234,10 @@ dist: build_all
 
 # compile
 $(OBJDIR)/%.o : %.c
+	@echo "  compiling $<"
+	$(HIDE)$(CC) -c $(CFLAGS) $(CFLAGS_LOCAL) $< -o $@ 
+
+$(OBJDIR)/%.o : %.cpp
 	@echo "  compiling $<"
 	$(HIDE)$(CC) -c $(CFLAGS) $(CFLAGS_LOCAL) $< -o $@ 
 
