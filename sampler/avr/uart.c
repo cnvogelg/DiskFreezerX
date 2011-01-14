@@ -27,6 +27,7 @@
 #include "global.h"
 
 #include <avr/io.h>
+#include <avr/interrupt.h>
 
 #include "uart.h"
 
@@ -50,11 +51,18 @@
 #define TXEN   TXEN0
 #define UCSZ0  UCSZ00
 #define UCSZ1  UCSZ01
+#define RXCIE  RXCIE0
 
 #endif
 
 // calc ubbr from baud rate
 #define UART_UBRR   F_CPU/16/UART_BAUD-1
+
+#define UART_RX_BUF_SIZE 256
+static volatile u08 uart_rx_buf[UART_RX_BUF_SIZE];
+static volatile u08 uart_rx_start = 0;
+static volatile u08 uart_rx_end = 0;
+static volatile u08 uart_rx_size = 0;
 
 void uart_init(void) 
 {
@@ -62,19 +70,54 @@ void uart_init(void)
     UBRRH = (u08)((UART_UBRR)>>8);
     UBRRL = (u08)((UART_UBRR)&0xff);
 
-    UCSRB = _BV(RXEN) | _BV(TXEN);   // enable tranceiver and transmitter
+    UCSRB = _BV(RXEN) | _BV(TXEN) | _BV(RXCIE);   // enable tranceiver and transmitter
     UCSRC = _BV(UCSZ0) | _BV(UCSZ1); // 8 bit, 1 stop, no parity, asynch. mode
+
+    uart_rx_start = 0;
+    uart_rx_end = 0;
+    uart_rx_size = 0;
+}
+
+// receiver interrupt
+#ifdef USART_RXC_vect
+ISR(USART_RXC_vect)
+#else
+ISR(USART_RX_vect)
+#endif
+{
+    u08 data = UDR;
+    uart_rx_buf[uart_rx_end] = data;
+
+    uart_rx_end++;
+    if(uart_rx_end == UART_RX_BUF_SIZE)
+        uart_rx_end = 0;
+
+    uart_rx_size++;
 }
 
 u08 uart_read_data_available(void)
 {
-    return (UCSRA & _BV(RXC)) == _BV(RXC);
+    return uart_rx_start != uart_rx_end;
 }
 
 u08 uart_read(void)
 {
-    while(!( UCSRA & _BV(RXC)));
-    return UDR;
+    // read for buffe to be filled
+    while(uart_rx_start==uart_rx_end);
+
+    // read buffer
+    cli();
+
+    u08 data = uart_rx_buf[uart_rx_start];
+
+    uart_rx_start++;
+    if(uart_rx_start == UART_RX_BUF_SIZE)
+        uart_rx_start = 0;
+
+    uart_rx_size--;  
+
+    sei();
+    return data;
 }
 
 void uart_send(u08 data)
