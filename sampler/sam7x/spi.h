@@ -22,15 +22,14 @@ extern u32 spi_write_index;
 // ----- public interface -----
 
 /* init SPI on board */
-extern void spi_init(void);
+extern void spi_slv_init(void);
+extern void spi_mst_init(unsigned int scbr);
+extern void spi_close(void);
 
 /* ----- normal transfer ----- */
 
-extern void spi_enable(void);
-extern void spi_disable(void);
-
-extern void spi_write_byte(u08 data);
-extern u08  spi_read_byte(void);
+extern u08 spi_io(u08 d);
+extern u08 spi_io_last(u08 d);
 
 /* ----- bulk (write) transfer ----- */
 

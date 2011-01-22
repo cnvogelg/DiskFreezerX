@@ -2,7 +2,7 @@
 #include "cmd.h"
 #include "util.h"
 #include "trk_read.h"
-#include "uartutil.h"
+#include "spiram.h"
 
 #define CMD_RES_ABORTED         0x80
 #define CMD_RES_FAIELD          0x40
@@ -166,6 +166,15 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
             cmd_motor_off();
             cmd_floppy_disable();
             set_result(0);
+          }
+          break;
+
+          // test SPI RAM
+        case 'M':
+          {
+              num = parse_hex_byte(0x42);
+              u32 errors = spiram_test(num,SPIRAM_SIZE);
+              set_result((u08)(errors & 0xff));
           }
           break;
 

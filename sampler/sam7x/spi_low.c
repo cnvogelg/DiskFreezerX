@@ -4,11 +4,11 @@
 
 // ----- SPI control -----
 
-void spi_low_init(void)
+void spi_low_mst_init(unsigned int scbr)
 {
     // Enable SPI clock
     AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, 1 << AT91C_ID_SPI ) ;
-    
+
     // Configure PIO controllers to periph mode
     AT91F_PIO_CfgPeriph(
         AT91C_BASE_PIOA, // PIO controller base address
@@ -20,11 +20,46 @@ void spi_low_init(void)
     
     AT91PS_SPI spi = AT91C_BASE_SPI;
 
-    // SPI mode: slave mode
+    // reset
+    spi->SPI_CR = AT91C_SPI_SWRST;
+    spi->SPI_CR = AT91C_SPI_SWRST;
+    spi->SPI_CR = AT91C_SPI_SPIEN;
+
+    // SPI mode: master
+    spi->SPI_MR = AT91C_SPI_MSTR;
+
+    unsigned int dlybct = 2;
+
+    // CS0: 8 bits
+    spi->SPI_CSR[0] = AT91C_SPI_BITS_8 | AT91C_SPI_NCPHA | (scbr << 8) | AT91C_SPI_CSAAT | (dlybct << 24);
+}
+
+void spi_low_slv_init(void)
+{
+    // Enable SPI clock
+    AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, 1 << AT91C_ID_SPI ) ;
+
+    // Configure PIO controllers to periph mode
+    AT91F_PIO_CfgPeriph(
+        AT91C_BASE_PIOA, // PIO controller base address
+        //((unsigned int) AT91C_PA11_NPCS0) |
+        ((unsigned int) AT91C_PA12_MISO ) |
+        ((unsigned int) AT91C_PA13_MOSI ) |
+        ((unsigned int) AT91C_PA14_SPCK ), // Periph A
+        0); // Periph B
+
+    AT91PS_SPI spi = AT91C_BASE_SPI;
+
+     // SPI mode: slave mode
     spi->SPI_MR = 0;
 
     // CS0: 8 bits
     spi->SPI_CSR[0] = AT91C_SPI_BITS_8;
+}
+
+void spi_low_close(void)
+{
+    *AT91C_SPI_CR = AT91C_SPI_SPIDIS;
 }
 
 // ----- IRQ Handling -----

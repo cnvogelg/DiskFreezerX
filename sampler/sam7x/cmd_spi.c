@@ -38,20 +38,20 @@ u08 cmd_uart_get_next(u08 **data)
 u08 cmd_spi_get_next(u08 **data)
 {
     // set READY flag   
-    spi_write_byte(READY_FLAG | tx_size);
+    spi_io(READY_FLAG | tx_size);
 
     // now wait for incoming commands
     while(1) {
-        u08 cmd = spi_read_byte();
+        u08 cmd = spi_io(0xff);
         /* TX from master */
         if(cmd == CMD_TX) {
-            u08 size = spi_read_byte();
+            u08 size = spi_io(0xff);
             for(int i=0;i<size;i++) {
-                rx_buf[i] = spi_read_byte();
+                rx_buf[i] = spi_io(0xff);
             }
             
             // clear READY flag
-            spi_write_byte(BUSY_CODE);
+            spi_io(BUSY_CODE);
             
             rx_size = size;
             *data = rx_buf;
@@ -59,14 +59,14 @@ u08 cmd_spi_get_next(u08 **data)
         } 
         /* RX from master */
         else if(cmd == CMD_RX) {
-            u08 size = spi_read_byte();
+            u08 size = spi_io(0xff);
             for(int i=0;i<size;i++) {
-                spi_write_byte(tx_buf[i]);
+                spi_io(tx_buf[i]);
             }
             
             // reset buffer
             tx_size = 0;
-            spi_write_byte(READY_FLAG);
+            spi_io(READY_FLAG);
         }
         /* READ_TRK */
         else if(cmd == CMD_TRK_READ) {
@@ -74,7 +74,7 @@ u08 cmd_spi_get_next(u08 **data)
             trk_read_real();
             
             // set to READY
-            spi_write_byte(READY_FLAG | tx_size);
+            spi_io(READY_FLAG | tx_size);
         }
     }
 }

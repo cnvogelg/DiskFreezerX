@@ -4,17 +4,9 @@
 #include "board.h"
 
 // setup SPI hardware
-extern void spi_low_init(void);
-
-__inline void spi_low_enable(void)
-{
-    *AT91C_SPI_CR = AT91C_SPI_SPIEN;
-}
-
-__inline void spi_low_disable(void)
-{
-    *AT91C_SPI_CR = AT91C_SPI_SPIDIS;
-}
+extern void spi_low_slv_init(void);
+extern void spi_low_mst_init(unsigned int scbr);
+extern void spi_low_close(void);
 
 __inline u32 spi_low_status(void)
 {
@@ -24,6 +16,11 @@ __inline u32 spi_low_status(void)
 extern void spi_low_irq_init(void);
 extern void spi_low_irq_start(void);
 extern void spi_low_irq_stop(void);
+
+__inline void spi_low_lastxfer(void)
+{
+  *AT91C_SPI_CR = AT91C_SPI_LASTXFER;
+}
 
 // ----- Transfer Inlines -----
 
@@ -37,14 +34,19 @@ __inline int spi_low_tx_empty(void)
     return (*AT91C_SPI_SR & AT91C_SPI_TDRE) == AT91C_SPI_TDRE;    
 }
 
-__inline u08 spi_low_rx_byte(void)
+__inline int spi_low_tx_all_empty(void)
 {
-    return (u08)(*AT91C_SPI_RDR & 0xff);
+    return (*AT91C_SPI_SR & AT91C_SPI_TXEMPTY) == AT91C_SPI_TXEMPTY;
 }
 
 __inline void spi_low_tx_byte(u08 b)
 {
     *AT91C_SPI_TDR = (u32)b;
+}
+
+__inline u08 spi_low_rx_byte(void)
+{
+    return (u08)(*AT91C_SPI_RDR & 0xff);
 }
 
 // ----- DMA Inlines -----
@@ -57,7 +59,6 @@ __inline void spi_low_tx_irq_enable(void)
 __inline void spi_low_tx_irq_disable(void)
 {
     *AT91C_SPI_IDR = AT91C_SPI_ENDTX;
-    *AT91C_SPI_TDR = 0;
 }
 
 __inline int spi_low_all_tx_dma_empty(void)

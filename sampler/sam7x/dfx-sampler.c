@@ -17,8 +17,6 @@ int main(void)
     uart_init();
     floppy_init();
     //timer_init();
-    spi_init();
-    spi_enable();
 
     // say hello
     uart_send_string((u08 *)"--- dfx-sampler sam7x/SPI ---");
@@ -59,6 +57,7 @@ int main(void)
                     
                 uart_send_string((u08 *)"res_len: ");
                 uart_send_hex_byte_crlf(res_size);
+                uart_send_data(result, res_size);
                 uart_send_crlf();
             }
         }
@@ -68,8 +67,6 @@ int main(void)
     uart_send_string((u08 *)"--- bye ---");
     uart_send_crlf();
 
-    spi_disable();
- 
     // wait forever... or for a reset
     while(1);
 }

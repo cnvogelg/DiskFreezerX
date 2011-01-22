@@ -1,5 +1,6 @@
 #include "spi.h"
 #include "spi_low.h"
+#include "board.h"
 
 #include "delay.h"
 
@@ -10,32 +11,41 @@ u08 *spi_write_ptr;
 u32  spi_write_size;
 u32  spi_write_overruns;
 
-void spi_init(void)
+void spi_slv_init(void)
 {
-  spi_low_init();
+  spi_low_slv_init();
   //spi_low_irq_init();
 }
 
-void spi_enable(void)
+void spi_mst_init(unsigned int scbr)
 {
-  spi_low_enable();
+  spi_low_mst_init(scbr);
+  //spi_low_irq_init();
 }
 
-void spi_disable(void)
+void spi_close(void)
 {
-  spi_low_disable();
+  spi_low_close();
 }
 
-void spi_write_byte(u08 data)
+u08 spi_io(u08 d)
 {
   while(!spi_low_tx_empty());
-  spi_low_tx_byte(data);
+  spi_low_tx_byte(d);
+  while(!spi_low_rx_full());
+  u08 r = spi_low_rx_byte();
+  return r;
 }
 
-u08  spi_read_byte(void)
+u08 spi_io_last(u08 d)
 {
+  while(!spi_low_tx_empty());
+  spi_low_lastxfer();
+  spi_low_tx_byte(d);
   while(!spi_low_rx_full());
-  return spi_low_rx_byte();
+  u08 r = spi_low_rx_byte();
+  while(!spi_low_tx_all_empty());
+  return r;
 }
 
 /* ----- bulk mode ----- */
@@ -107,9 +117,6 @@ u32 spi_bulk_end(void)
 
   // disable bulk DMA
   spi_low_tx_dma_disable();
-
-  // set read bytes to 0 again
-  spi_write_byte(0);
 
   return error;
 }

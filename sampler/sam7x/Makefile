@@ -64,7 +64,7 @@ TARGET = dfx-sampler
 
 # List C source files here. (C dependencies are automatically generated.)
 # use file-extension c for "c-only"-files
-SRC += spi_low.c spi.c cmd.c cmd_spi.c cmd_parse.c trk_read.c pit.c
+SRC += spi_low.c spi.c cmd.c cmd_spi.c cmd_parse.c trk_read.c pit.c spiram.c
 SRC += led.c delay.c floppy-low.c uart.c uartutil.c util.c cmdline.c timer.c 
 SRC += $(TARGET).c
 
@@ -244,7 +244,7 @@ endif
 
 # Define programs and commands.
 SHELL = sh
-CC = arm-elf-gcc
+CC = arm-elf-gcc-4.3.2
 CPP = arm-elf-g++
 OBJCOPY = arm-elf-objcopy
 OBJDUMP = arm-elf-objdump
