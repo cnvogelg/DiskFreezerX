@@ -3,6 +3,10 @@
 
 #include "board.h"
 
+// CS pins
+#define SPI_CS0_PIN         11
+#define SPI_CS0_MASK        (1<<11)
+
 // setup SPI hardware
 extern void spi_low_slv_init(void);
 extern void spi_low_mst_init(unsigned int scbr);
@@ -21,6 +25,26 @@ __inline void spi_low_lastxfer(void)
 {
   *AT91C_SPI_CR = AT91C_SPI_LASTXFER;
 }
+
+__inline void spi_low_set_cs(u32 cs)
+{
+  u32 mr = *AT91C_SPI_MR;
+  mr &= ~AT91C_SPI_PCS;
+  mr |= (cs << 16);
+  *AT91C_SPI_MR = mr;
+}
+
+__inline void spi_low_enable_cs0(void)
+{
+  AT91F_PIO_ClearOutput( AT91C_BASE_PIOA, SPI_CS0_MASK );
+}
+
+__inline void spi_low_disable_cs0(void)
+{
+  AT91F_PIO_SetOutput( AT91C_BASE_PIOA, SPI_CS0_MASK );
+}
+
+extern void spi_low_dma_init(void);
 
 // ----- Transfer Inlines -----
 
@@ -51,6 +75,16 @@ __inline u08 spi_low_rx_byte(void)
 
 // ----- DMA Inlines -----
 
+__inline void spi_low_dma_enable(void)
+{
+        *AT91C_SPI_PTCR = AT91C_PDC_RXTEN | AT91C_PDC_TXTEN;
+}
+
+__inline void spi_low_dma_disable(void)
+{
+        *AT91C_SPI_PTCR = AT91C_PDC_RXTDIS | AT91C_PDC_TXTDIS ;
+}
+
 __inline void spi_low_tx_irq_enable(void)
 {
     *AT91C_SPI_IER = AT91C_SPI_ENDTX;
@@ -59,6 +93,11 @@ __inline void spi_low_tx_irq_enable(void)
 __inline void spi_low_tx_irq_disable(void)
 {
     *AT91C_SPI_IDR = AT91C_SPI_ENDTX;
+}
+
+__inline int spi_low_tx_dma_empty(void)
+{
+    return (*AT91C_SPI_SR & AT91C_SPI_ENDTX) == AT91C_SPI_ENDTX;
 }
 
 __inline int spi_low_all_tx_dma_empty(void)
@@ -96,6 +135,55 @@ __inline void spi_low_tx_dma_set_next(const u08 *buffer, u32 n)
 {
 	*AT91C_SPI_TNPR = (u32)buffer;
 	*AT91C_SPI_TNCR = n;
+}
+
+// --- RX ---
+
+__inline int spi_low_rx_dma_empty(void)
+{
+    return (*AT91C_SPI_SR & AT91C_SPI_ENDRX) == AT91C_SPI_ENDRX;
+}
+
+__inline int spi_low_all_rx_dma_empty(void)
+{
+    return (*AT91C_SPI_SR & AT91C_SPI_RXBUFF) == AT91C_SPI_RXBUFF;
+}
+
+__inline int spi_low_rx_dma_first_size(void)
+{
+        return *AT91C_SPI_RCR;
+}
+
+__inline int spi_low_rx_dma_first_empty(void)
+{
+        return *AT91C_SPI_RCR == 0;
+}
+
+__inline int spi_low_rx_dma_next_empty(void)
+{
+        return *AT91C_SPI_RNCR == 0;
+}
+
+__inline void spi_low_rx_dma_enable(void)
+{
+        *AT91C_SPI_PTCR = AT91C_PDC_RXTEN;
+}
+
+__inline void spi_low_rx_dma_disable(void)
+{
+        *AT91C_SPI_PTCR = AT91C_PDC_RXTDIS;
+}
+
+__inline void spi_low_rx_dma_set_first(u08 *buffer, u32 n)
+{
+        *AT91C_SPI_RPR = (u32)buffer;
+        *AT91C_SPI_RCR = n;
+}
+
+__inline void spi_low_rx_dma_set_next(u08 *buffer, u32 n)
+{
+        *AT91C_SPI_RNPR = (u32)buffer;
+        *AT91C_SPI_RNCR = n;
 }
 
 #endif

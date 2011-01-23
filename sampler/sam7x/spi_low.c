@@ -9,29 +9,40 @@ void spi_low_mst_init(unsigned int scbr)
     // Enable SPI clock
     AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, 1 << AT91C_ID_SPI ) ;
 
+    // Enable PIO for CSx
+    AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, 1 << AT91C_ID_PIOA ) ;
+
     // Configure PIO controllers to periph mode
     AT91F_PIO_CfgPeriph(
         AT91C_BASE_PIOA, // PIO controller base address
-        ((unsigned int) AT91C_PA11_NPCS0) |
+        //((unsigned int) AT91C_PA11_NPCS0) |
         ((unsigned int) AT91C_PA12_MISO ) |
         ((unsigned int) AT91C_PA13_MOSI ) |
         ((unsigned int) AT91C_PA14_SPCK ), // Periph A
         0); // Periph B
-    
+
+    // manual config CS
+    AT91F_PIO_CfgOutput( AT91C_BASE_PIOA, SPI_CS0_MASK );
+    AT91F_PIO_SetOutput( AT91C_BASE_PIOA, SPI_CS0_MASK );
+
     AT91PS_SPI spi = AT91C_BASE_SPI;
 
-    // reset
+    // reset SPI and enable it
     spi->SPI_CR = AT91C_SPI_SWRST;
     spi->SPI_CR = AT91C_SPI_SWRST;
     spi->SPI_CR = AT91C_SPI_SPIEN;
 
-    // SPI mode: master
-    spi->SPI_MR = AT91C_SPI_MSTR;
+    // SPI mode: master mode
+    // MODFDIS is required to allow manual CSx control
+    spi->SPI_MR = AT91C_SPI_MSTR | AT91C_SPI_PS_FIXED | AT91C_SPI_MODFDIS;
 
     unsigned int dlybct = 2;
 
     // CS0: 8 bits
-    spi->SPI_CSR[0] = AT91C_SPI_BITS_8 | AT91C_SPI_NCPHA | (scbr << 8) | AT91C_SPI_CSAAT | (dlybct << 24);
+    spi->SPI_CSR[0] = AT91C_SPI_BITS_8 | AT91C_SPI_NCPHA | (scbr << 8) | (dlybct << 24);
+
+    // enable for sure
+    spi->SPI_CR = AT91C_SPI_SPIEN;
 }
 
 void spi_low_slv_init(void)
@@ -89,3 +100,30 @@ void spi_low_irq_stop(void)
     AT91F_AIC_DisableIt (AT91C_BASE_AIC, AT91C_ID_SPI);
 }
 #endif
+
+// ----- DMA -----
+
+void spi_low_dma_init(void)
+{
+  AT91PS_SPI spi = AT91C_BASE_SPI;
+
+  // init the SPI's PDC-controller:
+  // disable PDC TX and RX
+  spi->SPI_PTCR = AT91C_PDC_TXTDIS | AT91C_PDC_RXTDIS;
+  // init counters and buffer-pointers to 0
+  // "next" TX
+  spi->SPI_TNPR = 0;
+  spi->SPI_TNCR = 0;
+  // "next" RX
+  spi->SPI_RNPR = 0;
+  spi->SPI_RNCR = 0;
+  // TX
+  spi->SPI_TPR = 0;
+  spi->SPI_TCR = 0;
+  // RX
+  spi->SPI_RPR = 0;
+  spi->SPI_RCR = 0;
+}
+
+
+

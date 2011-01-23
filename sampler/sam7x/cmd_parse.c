@@ -177,6 +177,13 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
               set_result((u08)(errors & 0xff));
           }
           break;
+        case 'N':
+           {
+               num = parse_hex_byte(0x42);
+               u32 errors = spiram_dma_test(num,SPIRAM_SIZE);
+               set_result((u08)(errors & 0xff));
+           }
+           break;
 
             // ----- Track Read Commands -----
         case 'I':

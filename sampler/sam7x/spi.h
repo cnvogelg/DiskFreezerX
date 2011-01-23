@@ -5,7 +5,7 @@
 #include "spi_low.h"
 
 // for irq:
-#define SPI_BUFFER_SIZE 1024
+#define SPI_BUFFER_SIZE 0
 
 // marker for SPI bulk transfer
 #define SPI_BULK_EOT    0xff
@@ -29,7 +29,6 @@ extern void spi_close(void);
 /* ----- normal transfer ----- */
 
 extern u08 spi_io(u08 d);
-extern u08 spi_io_last(u08 d);
 
 /* ----- bulk (write) transfer ----- */
 

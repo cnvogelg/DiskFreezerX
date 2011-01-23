@@ -37,17 +37,6 @@ u08 spi_io(u08 d)
   return r;
 }
 
-u08 spi_io_last(u08 d)
-{
-  while(!spi_low_tx_empty());
-  spi_low_lastxfer();
-  spi_low_tx_byte(d);
-  while(!spi_low_rx_full());
-  u08 r = spi_low_rx_byte();
-  while(!spi_low_tx_all_empty());
-  return r;
-}
-
 /* ----- bulk mode ----- */
 
 void spi_bulk_begin(void)
