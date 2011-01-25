@@ -52,6 +52,10 @@ extern void display_reset(void);
 extern void display_set_orientation(u08 o);
 extern void display_set_area(u16 x0, u16 y0, u16 x1, u16 y1);
 
+extern void display_draw_start(void);
+extern void display_draw_pixel(u16 color);
+extern void display_draw_stop(void);
+
 extern void display_clear(u16 color);
 
 extern void display_set_color(u16 fg, u16 bg);

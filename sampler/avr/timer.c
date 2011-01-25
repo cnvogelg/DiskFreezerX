@@ -25,6 +25,7 @@
  */
 
 #include "global.h"
+#include "fat/fatfs.h"
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -125,6 +126,9 @@ ISR(TIMER2_COMP_vect)
 ISR(TIMER1_COMPA_vect)
 {
   timer_10ms++;
+
+  // trigger fatfs
+  fatfs_service();
 }
 
 void timer_delay_10ms(u16 timeout)

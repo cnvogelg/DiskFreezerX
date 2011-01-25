@@ -58,7 +58,7 @@
 // calc ubbr from baud rate
 #define UART_UBRR   F_CPU/16/UART_BAUD-1
 
-#define UART_RX_BUF_SIZE 256
+#define UART_RX_BUF_SIZE 16
 static volatile u08 uart_rx_buf[UART_RX_BUF_SIZE];
 static volatile u08 uart_rx_start = 0;
 static volatile u08 uart_rx_end = 0;

@@ -27,6 +27,7 @@
  
 # install dir of avr libc (here CrossPack location)
 AVRLIBC_DIR = /usr/local/CrossPack-AVR/avr/
+TOOL_DIR = /usr/local/CrossPack-AVR/bin
 
 ALL_BOARDS= arduino2009
 DIST_BOARDS= arduino2009
@@ -40,7 +41,8 @@ ifeq "$(BOARD)" "arduino2009"
 MCU ?= atmega328
 LDR_MCU ?= m328p
 F_CPU = 16000000
-MAX_SIZE = 14336
+MAX_ROM_SIZE = 30720
+MAX_RAM_SIZE = 2048
 UART_BAUD = 57600
 #DEFINES += IGNORE_RTS
 
@@ -77,6 +79,7 @@ OUTPUT = $(OUTDIR)/$(BASENAME)
 SRC := $(BOARD).c
 SRC += util.c uart.c uartutil.c timer.c
 SRC += display.c topaz.c console.c main.c
+SRC += fat/fatfs.c fat/ff.c fat/mmc.c
 
 # output format
 FORMAT = ihex
@@ -97,7 +100,7 @@ CFLAGS += -Os
 #CFLAGS += -fno-inline
 CFLAGS += -Wall -Werror -Wstrict-prototypes
 CFLAGS += -I$(AVRLIBC_DIR)/include
-CFLAGS += -mmcu=$(MCU) -I. 
+CFLAGS += -mmcu=$(MCU) -I. -Ifat
 
 CFLAGS_LOCAL = -Wa,-adhlns=$(<:%.c=$(OBJDIR)/%.lst)
 CFLAGS_LOCAL += -Wp,-M,-MP,-MT,$(OBJDIR)/$(*F).o,-MF,$(DEPDIR)/$(@F:.o=.d)
@@ -112,12 +115,12 @@ LDFLAGS = -lm -lc
 
 # Define programs and commands.
 SHELL = sh
-CC = avr-gcc
-OBJCOPY = avr-objcopy
-OBJDUMP = avr-objdump
-SIZE = avr-size
-NM = avr-nm
-AVRDUDE = avrdude
+CC = $(TOOL_DIR)/avr-gcc
+OBJCOPY = $(TOOL_DIR)/avr-objcopy
+OBJDUMP = $(TOOL_DIR)/avr-objdump
+SIZE = $(TOOL_DIR)/avr-size
+NM = $(TOOL_DIR)/avr-nm
+AVRDUDE = /opt/local/bin/avrdude
 REMOVE = rm -f
 COPY = cp
 RANLIB = avr-ranlib
@@ -132,7 +135,7 @@ endif
 
 # ---------- RULES ----------
 
-build: dirs hdr hex lss size
+all: dirs hdr hex lss size
 
 help:
 	@echo
@@ -163,6 +166,7 @@ help:
 dirs:
 	@if [ ! -d $(BUILD) ]; then mkdir -p $(BUILD); fi 
 	@if [ ! -d $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
+	@if [ ! -d $(OBJDIR)/fat ]; then mkdir -p $(OBJDIR)/fat ; fi
 	@if [ ! -d $(DEPDIR) ]; then mkdir -p $(DEPDIR); fi
 	@if [ ! -d $(OUTDIR) ]; then mkdir -p $(OUTDIR); fi
 
@@ -178,13 +182,35 @@ hex: $(OUTPUT).hex
 
 lss: $(OUTPUT).lss
 
-size: $(OUTPUT).hex
+# size check
+size: size_rom size_ram
+
+size_rom: $(OUTPUT).hex
 	@SIZE=`$(SIZE) -A --target=$(FORMAT) $(OUTPUT).hex | grep Total | awk '{ print $$2 }'` ; \
-	if [ $$SIZE -gt $(MAX_SIZE) ] ; then \
-		echo "  $$SIZE >  $(MAX_SIZE) bytes: TOO LARGE" ; exit 1 ; \
+	if [ $$SIZE -gt $(MAX_ROM_SIZE) ] ; then \
+		echo "  ROM: $$SIZE >  $(MAX_ROM_SIZE) bytes: TOO LARGE" ; exit 1 ; \
 	else \
-		echo "  $$SIZE <= $(MAX_SIZE) bytes: ok" ; \
+		echo "  ROM: $$SIZE <= $(MAX_ROM_SIZE) bytes: ok" ; \
 	fi
+
+size_ram: $(OUTPUT).elf
+	@DATA=`$(SIZE) -A $(OUTPUT).elf | fgrep .data | awk '{ print $$2 }'` ; \
+	BSS=`$(SIZE) -A $(OUTPUT).elf | fgrep .bss | awk '{ print $$2 }'` ; \
+	SIZE=$$(($$DATA + $$BSS)) ; \
+	if [ $$SIZE -gt $(MAX_RAM_SIZE) ] ; then \
+		echo "  RAM: $$SIZE >  $(MAX_RAM_SIZE) bytes: TOO LARGE" ; exit 1 ; \
+	else \
+		echo "  RAM: $$SIZE <= $(MAX_RAM_SIZE) bytes: ok" ; \
+	fi
+
+# show ram usage
+show_ram: $(OUTPUT).elf
+	@avr-objdump -t $< | awk '{ print $$4 " " $$5 " " $$6 }' | grep '^\.data' | grep -v '\.data$$' | sort
+	@avr-objdump -t $< | awk '{ print $$4 " " $$5 " " $$6 }' | grep '^\.bss' | grep -v '\.bss$$' | sort
+
+# show rom usage
+show_rom: $(OUTPUT).elf
+	@avr-objdump -t $< | awk '{ print $$4 " " $$5 " " $$6 }' | grep '^\.text' | grep -v '\.text$$' | sort
 
 clean:
 	rm -rf $(BUILD)

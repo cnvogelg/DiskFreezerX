@@ -246,7 +246,7 @@ void display_set_area(u16 x0, u16 y0, u16 x1, u16 y1)
 
 // ----- Drawing Commands -----
 
-static void draw_start(void)
+void display_draw_start(void)
 {
   CS_ENABLE();
   wr_spi(LCD_REGISTER);
@@ -257,13 +257,13 @@ static void draw_start(void)
   wr_spi(LCD_DATA);
 }
 
-static void draw(u16 color)
+void display_draw_pixel(u16 color)
 {
   wr_spi(color>>8);
   wr_spi(color);
 }
 
-static void draw_stop(void)
+void display_draw_stop(void)
 {
   CS_DISABLE();
 }
@@ -274,19 +274,19 @@ void display_clear(u16 color)
 
   display_set_area(0, 0, display_width-1, display_height-1);
 
-  draw_start();
+  display_draw_start();
   for(size=(320UL*240UL/8UL); size!=0; size--)
   {
-    draw(color); //1
-    draw(color); //2
-    draw(color); //3
-    draw(color); //4
-    draw(color); //5
-    draw(color); //6
-    draw(color); //7
-    draw(color); //8
+    display_draw_pixel(color); //1
+    display_draw_pixel(color); //2
+    display_draw_pixel(color); //3
+    display_draw_pixel(color); //4
+    display_draw_pixel(color); //5
+    display_draw_pixel(color); //6
+    display_draw_pixel(color); //7
+    display_draw_pixel(color); //8
   }
-  draw_stop();
+  display_draw_stop();
 }
 
 static u16 fg_color = COLOR_WHITE;
@@ -323,15 +323,15 @@ void display_draw_char(u08 cx,u08 cy,u08 ch)
     
     display_set_area(x,y,x+7,y+font_h);
 
-    draw_start();
+    display_draw_start();
     for(u08 y=0;y<=font_h;y++) {
         u08 bits = pgm_read_byte(ptr);
         for(u08 x=0;x<8;x++) {
-            draw( bits & bitmask[x] ? fg_color : bg_color);
+            display_draw_pixel( bits & bitmask[x] ? fg_color : bg_color);
         }
         ptr += font_step;
     }
-    draw_stop();
+    display_draw_stop();
 }
 
 void display_draw_string(u08 cx,u08 cy,const u08 *str)

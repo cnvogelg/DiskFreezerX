@@ -30,7 +30,7 @@
 #include "global.h"
 
 #define CONSOLE_WIDTH   40
-#define CONSOLE_HEIGHT  30
+#define CONSOLE_HEIGHT  2
 #define CONSOLE_TOTAL   (CONSOLE_WIDTH * CONSOLE_HEIGHT)
 
 extern void console_init(void);

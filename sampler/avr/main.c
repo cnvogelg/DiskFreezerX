@@ -29,6 +29,40 @@
 #include "timer.h"
 #include "display.h"
 #include "console.h"
+#include "fat/fatfs.h"
+
+static void read_image(void)
+{
+	FIL fsrc;
+	FRESULT res;
+	char filename[] = "main.raw";
+
+	res = f_open(&fsrc, filename, FA_OPEN_EXISTING | FA_READ);
+	if(res != FR_OK)
+	{
+		console_puts((u08 *)"file not found!");
+	    return;
+	}
+
+	for(u08 y=0;y<240;y++) {
+		for(u16 x=0;x<320;x++) {
+			u08 rgb[3];
+			UINT read;
+			res = f_read(&fsrc, &rgb, 3, &read);
+			if(res != FR_OK)
+				break;
+
+			u16 color = RGB(rgb[0],rgb[1],rgb[2]);
+
+			display_set_area(x,y,x,y);
+			display_draw_start();
+			display_draw_pixel(color);
+			display_draw_stop();
+		}
+	}
+
+	f_close(&fsrc);
+}
 
 int main (void){
   // board init. e.g. switch off watchdog
@@ -42,7 +76,25 @@ int main (void){
   display_init(2);
   console_init();
   console_puts((const u08 *)"AVRcon:\n");
-  
+
+  // sdcard/fatfs init
+  fatfs_init(2);
+  console_puts((const u08 *)"fatfs init\n");
+
+  // mount sdcard
+  if(fatfs_mount() == 0)
+  {
+	  console_puts((const u08 *)"mounted!");
+
+	  read_image();
+
+	  fatfs_umount();
+  }
+  else
+  {
+	  console_puts((const u08 *)"no card!");
+  }
+
   // main loop
   while(1) {
       u08 ch = uart_read();
