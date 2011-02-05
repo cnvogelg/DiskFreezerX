@@ -423,8 +423,10 @@ void trk_read_to_spiram(void)
 
     uart_send_string((u08 *)"data counter:   ");
     uart_send_hex_dword_crlf(spiram_total);
-    uart_send_string((u08 *)"data overflows: ");
-    uart_send_hex_dword_crlf(spiram_buffer_overflows);
+    if(spiram_buffer_overflows > 0) {
+        uart_send_string((u08 *)"data overflows: ");
+        uart_send_hex_dword_crlf(spiram_buffer_overflows);
+    }
     if(cell_overflows > 0) {
         uart_send_string((u08 *)"cell overflows: ");
         uart_send_hex_dword_crlf(cell_overflows);
