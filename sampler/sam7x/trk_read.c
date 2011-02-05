@@ -352,7 +352,7 @@ void trk_read_to_spiram(void)
 
     reset_status();
     
-    uart_send_string((u08 *)"read track to ram: ");
+    uart_send_string((u08 *)"read track to ram");
     uart_send_crlf();
 
     // prepare timers
@@ -421,7 +421,7 @@ void trk_read_to_spiram(void)
     floppy_disable_index_intr();
     pit_disable();
 
-    uart_send_string((u08 *)"data counter: ");
+    uart_send_string((u08 *)"data counter:   ");
     uart_send_hex_dword_crlf(spiram_total);
     uart_send_string((u08 *)"data overflows: ");
     uart_send_hex_dword_crlf(spiram_buffer_overflows);

@@ -43,5 +43,7 @@ u08 uart_send_hex_word_crlf(u16 data);
 // send a hex6 dword
 u08 uart_send_hex_dword_crlf(u32 data); 
 
+void uart_send_hex_line_crlf(u32 addr, const u08 *data, u32 len);
+
 #endif
 

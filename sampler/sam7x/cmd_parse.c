@@ -190,20 +190,13 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
                set_result((u08)(errors > 0));
            }
            break;
-        case 'W':
-          {
-              num = parse_hex_byte(0);
-              u32 errors = spiram_write_test(num,SPIRAM_SIZE);
-              if(errors > 0) {
-                  set_dword(errors);
-              }
-              set_result((u08)(errors > 0));
-          }
-          break;
+
+           // ----- DUMP MEMORY -----
         case 'R':
           {
               num = parse_hex_byte(0);
-              u32 errors = spiram_read_test(num,SPIRAM_SIZE);
+              u08 blk = parse_hex_byte(0);
+              u32 errors = spiram_dump(num,blk);
               if(errors > 0) {
                   set_dword(errors);
               }
@@ -214,11 +207,12 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
           // ----- CLEAR SPI RAM -----
         case 'C':
           {
+            num = parse_hex_byte(0);
             int errors = spiram_multi_init();
             if(errors > 0) {
                 set_dword(errors);
             }
-            errors = spiram_multi_clear();
+            errors = spiram_multi_clear(num);
             if(errors > 0) {
                 set_dword(errors);
             }
@@ -229,28 +223,44 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
             // ----- Track Read Commands -----
         case 'I':
             {
+                cmd_floppy_enable();
+                cmd_motor_on();
                 u32 count = trk_read_count_index();
+                cmd_motor_off();
+                cmd_floppy_disable();
                 set_result(4);
                 set_dword(count);
             }
             break;
         case 'D':
             {
+                cmd_floppy_enable();
+                cmd_motor_on();
                 u32 count = trk_read_count_data();
+                cmd_motor_off();
+                cmd_floppy_disable();
                 set_result(4);
                 set_dword(count);
             }
             break;
         case 'S':
             {
+                cmd_floppy_enable();
+                cmd_motor_on();
                 u32 count = trk_read_data_spectrum();
+                cmd_motor_off();
+                cmd_floppy_disable();
                 set_result(4);
                 set_dword(count);
             }
             break;
         case 'T':
            {
+                cmd_floppy_enable();
+                cmd_motor_on();
                 trk_read_to_spiram();
+                cmd_motor_off();
+                cmd_floppy_disable();
                 set_result(0);
            }
         }

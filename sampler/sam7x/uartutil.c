@@ -80,3 +80,16 @@ u08 uart_send_hex_dword_crlf(u32 data)
     return 0;
 }
 
+void uart_send_hex_line_crlf(u32 addr, const u08 *data, u32 len)
+{
+  dword_to_hex(addr,buf);
+  uart_send_data(buf,8);
+  uart_send(':');
+  uart_send(' ');
+  for(int i=0;i<len;i++) {
+      byte_to_hex(data[i],buf);
+      uart_send_data(buf,2);
+      uart_send(' ');
+  }
+  uart_send_crlf();
+}

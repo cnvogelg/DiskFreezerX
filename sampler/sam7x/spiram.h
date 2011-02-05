@@ -23,7 +23,7 @@
 #define SPIRAM_CMD_WRITE_STATUS 0x01
 
 /* number of chips in multi ram */
-#define SPIRAM_NUM_MULTI        8
+#define SPIRAM_NUM_CHIPS        8
 
 // ----- spiram functions -----------------------------------------------------
 
@@ -39,23 +39,24 @@ extern void spiram_write_dma(const u08 *data, u16 size);
 extern void spiram_read_dma(u08 *data, u16 size);
 extern void spiram_end_dma(void);
 
-extern u32 spiram_test(u08 begin,u16 size);
-extern u32 spiram_dma_test(u08 begin,u16 size);
-extern u32 spiram_write_test(u08 chip_no,u16 size);
-extern u32 spiram_read_test(u08 chip_no,u16 size);
-
 __inline void spiram_write_byte(u08 data)
 { spi_io(data); }
 
 __inline u08 spiram_read_byte(void)
 { return spi_io(0xff); }
 
+// ----- test -----------------------------------------------------------------
+
+extern u32 spiram_test(u08 begin,u16 size);
+extern u32 spiram_dma_test(u08 begin,u16 size);
+extern u32 spiram_dump(u08 chip_no,u08 bank);
+
 // ----- multi ram ------------------------------------------------------------
 
 extern int  spiram_multi_init(void);
 extern void spiram_multi_write_begin(void);
 extern void spiram_multi_write_end(void);
-extern int  spiram_multi_clear(void);
+extern int  spiram_multi_clear(u08 value);
 
 extern int  spiram_multi_write_next_buffer(void);
 
@@ -72,12 +73,13 @@ extern u32  spiram_num_ready;
 extern u32  spiram_dma_index;
 extern u32  spiram_dma_chip_no;
 extern u32  spiram_total;
+extern u08  spiram_dummy_buffer[SPIRAM_BUFFER_SIZE];
 
 /* handle DMA page flipping */
 __inline void spiram_multi_write_handle(void)
 {
   // dma is empty -> fill it
-  if((spiram_num_ready > 0) && spi_low_tx_dma_empty()) {
+  if((spiram_num_ready > 0) && spi_low_rx_dma_empty()) {
 
       // get next dma buffer
       u08 *ptr = spiram_buffer[spiram_dma_index];
@@ -96,6 +98,7 @@ __inline void spiram_multi_write_handle(void)
       }
 
       // start next DMA
+      spi_low_rx_dma_set_next(spiram_dummy_buffer, SPIRAM_BUFFER_SIZE);
       spi_low_tx_dma_set_next(ptr, SPIRAM_BUFFER_SIZE);
   }
 }
