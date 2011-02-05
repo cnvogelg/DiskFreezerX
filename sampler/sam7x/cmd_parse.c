@@ -172,18 +172,59 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
           // test SPI RAM
         case 'M':
           {
-              num = parse_hex_byte(0x42);
+              num = parse_hex_byte(0);
               u32 errors = spiram_test(num,SPIRAM_SIZE);
-              set_result((u08)(errors & 0xff));
+              if(errors > 0) {
+                  set_dword(errors);
+              }
+              set_result((u08)(errors > 0));
           }
           break;
         case 'N':
            {
-               num = parse_hex_byte(0x42);
+               num = parse_hex_byte(0);
                u32 errors = spiram_dma_test(num,SPIRAM_SIZE);
-               set_result((u08)(errors & 0xff));
+               if(errors > 0) {
+                   set_dword(errors);
+               }
+               set_result((u08)(errors > 0));
            }
            break;
+        case 'W':
+          {
+              num = parse_hex_byte(0);
+              u32 errors = spiram_write_test(num,SPIRAM_SIZE);
+              if(errors > 0) {
+                  set_dword(errors);
+              }
+              set_result((u08)(errors > 0));
+          }
+          break;
+        case 'R':
+          {
+              num = parse_hex_byte(0);
+              u32 errors = spiram_read_test(num,SPIRAM_SIZE);
+              if(errors > 0) {
+                  set_dword(errors);
+              }
+              set_result((u08)(errors > 0));
+          }
+          break;
+
+          // ----- CLEAR SPI RAM -----
+        case 'C':
+          {
+            int errors = spiram_multi_init();
+            if(errors > 0) {
+                set_dword(errors);
+            }
+            errors = spiram_multi_clear();
+            if(errors > 0) {
+                set_dword(errors);
+            }
+            set_result((u08)(errors > 0));
+          }
+          break;
 
             // ----- Track Read Commands -----
         case 'I':
@@ -207,6 +248,11 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
                 set_dword(count);
             }
             break;
+        case 'T':
+           {
+                trk_read_to_spiram();
+                set_result(0);
+           }
         }
     }   
     

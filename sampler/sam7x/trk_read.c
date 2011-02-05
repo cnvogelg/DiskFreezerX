@@ -1,5 +1,5 @@
 #include "trk_read.h"
-#include "spi.h"
+#include "spiram.h"
 #include "floppy-low.h"
 #include "timer.h"
 #include "uartutil.h"
@@ -335,35 +335,6 @@ u32 trk_read_data_spectrum(void)
     return counter;
 }
 
-// ----- spi slave test -----
-
-#define SPI_BLOCK_SIZE  4096
-
-void trk_read_dummy(u32 num)
-{
-    uart_send_string((u08 *)"size/blk: ");
-    uart_send_hex_dword_crlf(SPI_BLOCK_SIZE);
-    uart_send_string((u08 *)"blocks:   ");
-    uart_send_hex_dword_crlf(num);
-    
-    spi_bulk_begin();
-    for(u32 j=0;j<num;j++) {
-        for(u32 i=0;i<SPI_BLOCK_SIZE;i++) {
-            // retry if not ready
-            u08 d = (u08)(i & 0x7f) +1;
-            spi_bulk_write_byte(d);
-            spi_bulk_handle();
-            delay_us(2);
-        }        
-    }
-    spi_bulk_end();
-    
-    uart_send_string((u08 *)"done");
-    uart_send_crlf();
-
-    
-}
-
 // ----- read a track -----
 
 static void read_index_func(void)
@@ -371,18 +342,17 @@ static void read_index_func(void)
   idx_flag = pit_peek();
 }
 
-void trk_read_real(void)
+void trk_read_to_spiram(void)
 {
     u32 cell_overflows = 0;
     u32 cell_overruns = 0;
-    u32 my_data_counter = 0;
     u32 index_counter = max_index;
     u32 my_index[MAX_INDEX];
     u32 cell_overflow_values[MAX_OVERFLOWS];
 
     reset_status();
     
-    uart_send_string((u08 *)"read track: ");
+    uart_send_string((u08 *)"read track to ram: ");
     uart_send_crlf();
 
     // prepare timers
@@ -395,13 +365,12 @@ void trk_read_real(void)
     floppy_enable_index_intr(read_index_func);
 
     // begin bulk transfer
-    spi_bulk_begin();
+    spiram_multi_init();
+    spiram_multi_write_begin();
 
     // wait for an index marker
     idx_flag = 0;
-    while(!idx_flag) {
-        spi_bulk_handle();
-    }
+    while(!idx_flag) {}
     idx_flag = 0;
 
     timer2_enable();
@@ -422,26 +391,24 @@ void trk_read_real(void)
 
             // overflow?
             if(delta >= LAST_VALUE) {
-                spi_bulk_write_byte(MARKER_OVERFLOW);
+                spiram_multi_write_byte(MARKER_OVERFLOW);
                 cell_overflow_values[cell_overflows] = delta;
                 cell_overflows++;
             } else {
                 u08 d = (u08)(delta & 0xff);
-                spi_bulk_write_byte(d);
+                spiram_multi_write_byte(d);
             }
-            my_data_counter++;
 
             // index marker was found
             if(idx_flag) {
-                spi_bulk_write_byte(MARKER_INDEX);
-                my_data_counter++;
+                spiram_multi_write_byte(MARKER_INDEX);
                 index_counter--;
                 my_index[index_counter] = idx_flag;
                 idx_flag = 0;
             }
 
             // handle SPI transfer
-            spi_bulk_handle();
+            spiram_multi_write_handle();
         }
         if(status & AT91C_TC_LOVRS) {
             cell_overruns++;
@@ -449,13 +416,15 @@ void trk_read_real(void)
     }
 
     timer2_disable();
-    spi_bulk_end();
+    spiram_multi_write_end();
 
     floppy_disable_index_intr();
     pit_disable();
 
     uart_send_string((u08 *)"data counter: ");
-    uart_send_hex_dword_crlf(my_data_counter);
+    uart_send_hex_dword_crlf(spiram_total);
+    uart_send_string((u08 *)"data overflows: ");
+    uart_send_hex_dword_crlf(spiram_buffer_overflows);
     if(cell_overflows > 0) {
         uart_send_string((u08 *)"cell overflows: ");
         uart_send_hex_dword_crlf(cell_overflows);
@@ -472,8 +441,8 @@ void trk_read_real(void)
     // update status
     read_status.cell_overruns  = cell_overruns;
     read_status.cell_overflows = cell_overflows;
-    read_status.data_size = my_data_counter;
-    read_status.data_overruns = spi_write_overruns;
+    read_status.data_size = spiram_total;
+    read_status.data_overruns = spiram_buffer_overflows;
     got_index = idx_counter;
 
     // copy index pos

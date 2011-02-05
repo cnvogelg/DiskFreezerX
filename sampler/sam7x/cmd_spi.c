@@ -71,7 +71,7 @@ u08 cmd_spi_get_next(u08 **data)
         /* READ_TRK */
         else if(cmd == CMD_TRK_READ) {
             // read track handler
-            trk_read_real();
+            //trk_read_real();
             
             // set to READY
             spi_io(READY_FLAG | tx_size);

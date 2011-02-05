@@ -6,23 +6,17 @@
 #include "spiram.h"
 #include "uartutil.h"
 
-/* SPI commands of SRAM */
-#define SPIRAM_CMD_READ         0x03
-#define SPIRAM_CMD_WRITE        0x02
-#define SPIRAM_CMD_READ_STATUS  0x05
-#define SPIRAM_CMD_WRITE_STATUS 0x01
-
 void spiram_init(void)
 {
   // sbcr = MCLK / spiram_rate
   // MCLK=48 MHz -> spiram_rate = 6 Mbit/s
-  spi_mst_init(8);
+  spi_low_mst_init(8);
   spi_low_dma_init();
 }
 
 void spiram_close(void)
 {
-  spi_close();
+  spi_low_close();
 }
 
 u08 spiram_set_mode(u08 mode)
@@ -30,23 +24,23 @@ u08 spiram_set_mode(u08 mode)
   u08 result;
 
   // set mode in status register
-  spi_low_enable_cs0();
+  spi_low_enable_multi();
   spi_io(SPIRAM_CMD_WRITE_STATUS);
   spi_io(mode);
-  spi_low_disable_cs0();
+  spi_low_disable_multi();
 
   // read mode again
-  spi_low_enable_cs0();
+  spi_low_enable_multi();
   spi_io(SPIRAM_CMD_READ_STATUS);
   result = spi_io(0xff);
-  spi_low_disable_cs0();
+  spi_low_disable_multi();
 
-  return (result != mode);
+  return result;
 }
 
 void spiram_write_begin(u16 address)
 {
-  spi_low_enable_cs0();
+  spi_low_enable_multi();
   spi_io(SPIRAM_CMD_WRITE);
   spi_io((u08)((address >> 8)& 0xff)); // hi byte of addr
   spi_io((u08)(address & 0xff));       // lo byte of addr
@@ -55,7 +49,7 @@ void spiram_write_begin(u16 address)
 
 void spiram_read_begin(u16 address)
 {
-  spi_low_enable_cs0();
+  spi_low_enable_multi();
   spi_io(SPIRAM_CMD_READ);
   spi_io((u08)((address >> 8)& 0xff)); // hi byte of addr
   spi_io((u08)(address & 0xff));       // lo byte of addr
@@ -64,18 +58,18 @@ void spiram_read_begin(u16 address)
 
 void spiram_end(void)
 {
-  spi_low_disable_cs0();
+  spi_low_disable_multi();
 }
 
-u08 dma_dummy[SPIRAM_MAX_DMA_SIZE];
-//volatile u32 dummy;
+u08 dma_dummy[SPIRAM_BUFFER_SIZE];
 
 void spiram_write_dma(const u08 *data, u16 size)
 {
   spi_low_tx_dma_set_first(data,size);
-  spi_low_tx_dma_enable();
-  while(!spi_low_tx_dma_empty());
-  spi_low_tx_dma_disable();
+  spi_low_rx_dma_set_first(dma_dummy,size);
+  spi_low_dma_enable();
+  while(!spi_low_rx_dma_empty());
+  spi_low_dma_disable();
 }
 
 void spiram_read_dma(u08 *data, u16 size)
@@ -87,9 +81,158 @@ void spiram_read_dma(u08 *data, u16 size)
   spi_low_dma_disable();
 }
 
-void spiram_end_dma(void)
+// ----- MULTI RAM ------------------------------------------------------------
+
+u08  spiram_buffer[SPIRAM_NUM_BUFFER][SPIRAM_BUFFER_SIZE];
+
+u32  spiram_buffer_index;
+u32  spiram_buffer_usage;
+u08 *spiram_buffer_ptr;
+
+u32  spiram_buffer_overflows;
+
+u32  spiram_chip_no;
+u32  spiram_bank_no;
+u32  spiram_buffer_on_chip[SPIRAM_NUM_BUFFER];
+
+u32  spiram_num_ready;
+u32  spiram_dma_index;
+u32  spiram_dma_chip_no;
+
+u32  spiram_total;
+
+int spiram_multi_init(void)
 {
-  spi_low_disable_cs0();
+  spiram_init();
+
+  // set SEQ mode for all chips
+  int error_flag = 0;
+  for(int i=0;i<SPIRAM_NUM_MULTI;i++) {
+      u08 mode = spiram_set_mode(SPIRAM_MODE_SEQ);
+      if(mode != SPIRAM_MODE_SEQ) {
+          error_flag |= (1<<i);
+      }
+  }
+
+  return error_flag;
+}
+
+// clear all chip rams
+int spiram_multi_clear(void)
+{
+  // clear buffer
+  u08 *buf = spiram_buffer[0];
+  for(int i=0;i<SPIRAM_BUFFER_SIZE;i++) {
+      buf[i] = 0;
+  }
+
+  // write buffer to all banks/chips
+  for(int i=0;i<SPIRAM_NUM_MULTI;i++) {
+      spi_low_set_multi(i);
+      spiram_write_begin(0);
+      for(int j=0;j<SPIRAM_NUM_BANKS;j++) {
+          spiram_write_dma(buf, SPIRAM_BUFFER_SIZE);
+      }
+      spiram_end();
+  }
+
+  // verify loop
+  int error_flag = 0;
+  for(int i=0;i<SPIRAM_NUM_MULTI;i++) {
+      spi_low_set_multi(i);
+      spiram_read_begin(0);
+      for(int j=0;j<SPIRAM_NUM_BANKS;j++) {
+          spiram_read_dma(buf, SPIRAM_BUFFER_SIZE);
+          for(int k=0;k<SPIRAM_BUFFER_SIZE;k++) {
+              if(buf[k]!=0) {
+                  error_flag ++;
+              }
+          }
+      }
+      spiram_end();
+  }
+  return error_flag;
+}
+
+void spiram_multi_write_begin(void)
+{
+  // fill buffer with initial WRITE command
+  spiram_buffer[0][0] = SPIRAM_CMD_WRITE;
+  spiram_buffer[0][1] = 0;
+  spiram_buffer[0][2] = 0;
+
+  // setup write buffer state
+  spiram_buffer_index = 0;
+  spiram_buffer_usage = 3;
+  spiram_buffer_ptr   = &spiram_buffer[0][0] + 3;
+
+  // reset error state
+  spiram_buffer_overflows = 0;
+
+  // init bank/chip checking
+  spiram_chip_no = 0;
+  spiram_bank_no = 0;
+  spiram_buffer_on_chip[0] = 0;
+
+  // setup DMA buffer index
+  spiram_num_ready = 0;
+  spiram_dma_index = 0;
+  spiram_dma_chip_no = 0;
+
+  spiram_total = 0;
+
+  // pre-select chip 0
+  spi_low_set_multi(0);
+  spi_low_dma_enable();
+}
+
+int spiram_multi_write_next_buffer(void)
+{
+  // buffer is full -> get next
+  u32 next_index = (spiram_buffer_index + 1) & (SPIRAM_NUM_BUFFER-1);
+
+  // oops! -> DMA is using this buffer :( overflow!
+  if(next_index == spiram_dma_index) {
+      spiram_buffer_overflows ++;
+      return 0;
+  } else {
+      spiram_buffer_usage = 0;
+      spiram_buffer_index = next_index;
+      spiram_buffer_ptr   = &spiram_buffer[spiram_buffer_index][0];
+
+      // determine chip
+      spiram_bank_no ++;
+      if(spiram_bank_no == SPIRAM_NUM_BANKS) {
+          spiram_chip_no++;
+          spiram_bank_no = 0;
+
+          // write initial WRITE command for new chip
+          *(spiram_buffer_ptr++) = SPIRAM_CMD_WRITE;
+          *(spiram_buffer_ptr++) = 0;
+          *(spiram_buffer_ptr++) = 0;
+          spiram_buffer_usage    = 3;
+      }
+
+      // store for each buffer the chip
+      spiram_buffer_on_chip[next_index] = spiram_chip_no;
+
+      // another buffer is reay
+      spiram_num_ready ++;
+      return 1;
+  }
+}
+
+void spiram_multi_write_end(void)
+{
+  // make sure all buffers are transmitted
+  while(spiram_num_ready > 0) {
+      spiram_multi_write_handle();
+  }
+
+  // make sure last DMA finished
+  while(!spi_low_tx_dma_empty());
+
+  spi_low_dma_disable();
 }
 
 // ----- TESTS ----------------------------------------------------------------
@@ -97,11 +240,12 @@ void spiram_end_dma(void)
 u32 spiram_test(u08 begin,u16 size)
 {
   spiram_init();
+  spi_low_set_multi(begin);
 
   // set sequential mode
-  u08 errors = spiram_set_mode(SPIRAM_MODE_SEQ);
-  if(errors) {
-      return 0xffff;
+  u08 mode = spiram_set_mode(SPIRAM_MODE_SEQ);
+  if(mode != SPIRAM_MODE_SEQ) {
+      return mode;
   }
 
   uart_send_string((u08 *)"set mode ok");
@@ -138,35 +282,33 @@ u32 spiram_test(u08 begin,u16 size)
   uart_send_hex_dword_crlf(sum2);
 
   spiram_close();
-  return (sum == sum2);
+  return (sum != sum2);
 }
 
 // ----- DMA TEST -----
 
-/* write bytes */
-u08 data[SPIRAM_MAX_DMA_SIZE];
-
 u32 spiram_dma_test(u08 begin,u16 size)
 {
   spiram_init();
+  spi_low_set_multi(begin);
 
   // set sequential mode
-  u08 errors = spiram_set_mode(SPIRAM_MODE_SEQ);
-  if(errors) {
-      return 0xffff;
+  u08 mode = spiram_set_mode(SPIRAM_MODE_SEQ);
+  if(mode != SPIRAM_MODE_SEQ) {
+      return mode;
   }
 
   uart_send_string((u08 *)"set mode ok");
   uart_send_crlf();
 
-  u16 page_size = SPIRAM_MAX_DMA_SIZE;
+  u16 page_size = SPIRAM_BUFFER_SIZE;
   u16 pages  = size / page_size;
   u16 remain = size % page_size;
-  uart_send_hex_word_crlf(pages);
-  uart_send_hex_word_crlf(remain);
 
   pages = 1;
   remain = 0;
+
+  u08 *data = &spiram_buffer[0][0];
 
   // fill page
   u08 d = begin;
@@ -182,7 +324,7 @@ u32 spiram_dma_test(u08 begin,u16 size)
   if(remain > 0) {
       spiram_write_dma(data,remain);
   }
-  spiram_end_dma();
+  spiram_end();
 
   uart_send_string((u08 *)"write ok");
   uart_send_crlf();
@@ -214,11 +356,23 @@ u32 spiram_dma_test(u08 begin,u16 size)
           d++;
       }
   }
-  spiram_end_dma();
+  spiram_end();
 
   uart_send_string((u08 *)"read done");
   uart_send_crlf();
 
   spiram_close();
   return read_errors;
+}
+
+// ----- Read & Write Test -----
+
+u32 spiram_write_test(u08 chip_no,u16 size)
+{
+  return 0;
+}
+
+u32 spiram_read_test(u08 chip_no,u16 size)
+{
+  return 0;
 }

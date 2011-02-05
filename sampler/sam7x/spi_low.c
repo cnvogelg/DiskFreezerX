@@ -22,8 +22,8 @@ void spi_low_mst_init(unsigned int scbr)
         0); // Periph B
 
     // manual config CS
-    AT91F_PIO_CfgOutput( AT91C_BASE_PIOA, SPI_CS0_MASK );
-    AT91F_PIO_SetOutput( AT91C_BASE_PIOA, SPI_CS0_MASK );
+    AT91F_PIO_CfgOutput( AT91C_BASE_PIOA, SPI_CS0_MASK | SPI_MULTI_ALL_MASK );
+    AT91F_PIO_SetOutput( AT91C_BASE_PIOA, SPI_CS0_MASK | SPI_MULTI_ALL_MASK );
 
     AT91PS_SPI spi = AT91C_BASE_SPI;
 
@@ -123,6 +123,16 @@ void spi_low_dma_init(void)
   // RX
   spi->SPI_RPR = 0;
   spi->SPI_RCR = 0;
+}
+
+// ----- Multi -----
+
+void spi_low_set_multi(int num)
+{
+  int set_mask = (num & 0x7) << SPI_MULTI_A0_PIN;
+  AT91F_PIO_SetOutput( AT91C_BASE_PIOA, set_mask );
+  int clr_mask = ((num ^ 0x7) & 0x7) << SPI_MULTI_A0_PIN;
+  AT91F_PIO_ClearOutput( AT91C_BASE_PIOA, clr_mask );
 }
 
 

@@ -19,8 +19,7 @@ u32  trk_read_count_index(void);
 u32  trk_read_count_data(void);
 u32  trk_read_data_spectrum(void);
 
-void trk_read_dummy(u32 num);
-void trk_read_real(void);
+void trk_read_to_spiram(void);
 
 void trk_read_set_max_index(u32 num_index);
 u32  trk_read_get_num_index(void);
