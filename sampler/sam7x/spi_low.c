@@ -14,7 +14,7 @@ void spi_low_cs_init(void)
   AT91F_PIO_SetOutput( AT91C_BASE_PIOA, SPI_CS0_MASK | SPI_MULTI_ALL_MASK );
 }
 
-void spi_low_mst_init(unsigned int scbr)
+void spi_low_mst_init(void)
 {
     // Enable SPI clock
     AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, 1 << AT91C_ID_SPI ) ;
@@ -38,14 +38,12 @@ void spi_low_mst_init(unsigned int scbr)
     // SPI mode: master mode
     // MODFDIS is required to allow manual CSx control
     spi->SPI_MR = AT91C_SPI_MSTR | AT91C_SPI_PS_FIXED | AT91C_SPI_MODFDIS;
+}
 
-    unsigned int dlybct = 2;
-
-    // CS0: 8 bits
-    spi->SPI_CSR[0] = AT91C_SPI_BITS_8 | AT91C_SPI_NCPHA | (scbr << 8) | (dlybct << 24);
-
-    // enable for sure
-    spi->SPI_CR = AT91C_SPI_SPIEN;
+void spi_low_set_channel(int client, int scbr)
+{
+     // CS0: 8 bits
+    AT91C_BASE_SPI->SPI_CSR[0] = AT91C_SPI_BITS_8 | AT91C_SPI_NCPHA | (scbr << 8);
 }
 
 void spi_low_slv_init(void)
@@ -69,11 +67,6 @@ void spi_low_slv_init(void)
 
     // CS0: 8 bits
     spi->SPI_CSR[0] = AT91C_SPI_BITS_8;
-}
-
-void spi_low_close(void)
-{
-    *AT91C_SPI_CR = AT91C_SPI_SPIDIS;
 }
 
 // ----- IRQ Handling -----

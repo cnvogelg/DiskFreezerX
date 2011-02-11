@@ -10,15 +10,13 @@ u08 spiram_dummy_buffer[SPIRAM_BUFFER_SIZE];
 
 void spiram_init(void)
 {
-  // sbcr = MCLK / spiram_rate
-  // MCLK=48 MHz -> spiram_rate = 6 Mbit/s
-  spi_low_mst_init(8);
   spi_low_dma_init();
+  spi_low_enable();
 }
 
 void spiram_close(void)
 {
-  spi_low_close();
+  spi_low_disable();
 }
 
 u08 spiram_set_mode(u08 mode)

@@ -22,18 +22,30 @@
 // setup SPI hardware
 extern void spi_low_cs_init(void);
 extern void spi_low_slv_init(void);
-extern void spi_low_mst_init(unsigned int scbr);
-extern void spi_low_close(void);
+extern void spi_low_mst_init(void);
+extern void spi_low_set_channel(int client, int scbr);
 extern u08  spi_low_io(u08 d);
+
+__inline void spi_low_enable(void)
+{
+  *AT91C_SPI_CR = AT91C_SPI_SPIEN;
+}
+
+__inline void spi_low_disable(void)
+{
+  *AT91C_SPI_CR = AT91C_SPI_SPIDIS;
+}
 
 __inline u32 spi_low_status(void)
 {
     return *AT91C_SPI_SR;
 }
 
+#if 0
 extern void spi_low_irq_init(void);
 extern void spi_low_irq_start(void);
 extern void spi_low_irq_stop(void);
+#endif
 
 __inline void spi_low_lastxfer(void)
 {
