@@ -27,14 +27,14 @@ u08 spiram_set_mode(u08 mode)
 
   // set mode in status register
   spi_low_enable_multi();
-  spi_io(SPIRAM_CMD_WRITE_STATUS);
-  spi_io(mode);
+  spi_low_io(SPIRAM_CMD_WRITE_STATUS);
+  spi_low_io(mode);
   spi_low_disable_multi();
 
   // read mode again
   spi_low_enable_multi();
-  spi_io(SPIRAM_CMD_READ_STATUS);
-  result = spi_io(0xff);
+  spi_low_io(SPIRAM_CMD_READ_STATUS);
+  result = spi_low_io(0xff);
   spi_low_disable_multi();
 
   return result;
@@ -43,18 +43,18 @@ u08 spiram_set_mode(u08 mode)
 void spiram_write_begin(u16 address)
 {
   spi_low_enable_multi();
-  spi_io(SPIRAM_CMD_WRITE);
-  spi_io((u08)((address >> 8)& 0xff)); // hi byte of addr
-  spi_io((u08)(address & 0xff));       // lo byte of addr
+  spi_low_io(SPIRAM_CMD_WRITE);
+  spi_low_io((u08)((address >> 8)& 0xff)); // hi byte of addr
+  spi_low_io((u08)(address & 0xff));       // lo byte of addr
   // now bytes will follow until CS is raised again...
 }
 
 void spiram_read_begin(u16 address)
 {
   spi_low_enable_multi();
-  spi_io(SPIRAM_CMD_READ);
-  spi_io((u08)((address >> 8)& 0xff)); // hi byte of addr
-  spi_io((u08)(address & 0xff));       // lo byte of addr
+  spi_low_io(SPIRAM_CMD_READ);
+  spi_low_io((u08)((address >> 8)& 0xff)); // hi byte of addr
+  spi_low_io((u08)(address & 0xff));       // lo byte of addr
   // now bytes will follow until CS is raised again...
 }
 

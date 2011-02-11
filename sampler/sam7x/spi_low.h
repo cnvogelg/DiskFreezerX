@@ -23,6 +23,7 @@
 extern void spi_low_slv_init(void);
 extern void spi_low_mst_init(unsigned int scbr);
 extern void spi_low_close(void);
+extern u08  spi_low_io(u08 d);
 
 __inline u32 spi_low_status(void)
 {

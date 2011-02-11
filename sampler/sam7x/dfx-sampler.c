@@ -2,14 +2,12 @@
 #include "floppy-low.h"
 #include "timer.h"
 #include "util.h"
-#include "spi.h"
 #include "pit.h"
 #include "diskio.h"
 
 #include "uart.h"
 #include "uartutil.h"
 
-#include "cmd_spi.h"
 #include "cmd_parse.h"
 
 static void led_proc(void)
@@ -42,13 +40,7 @@ int main(void)
         
         // get next command via SPI
         u08 *cmd;
-
-#define USE_UART_INPUT
-#ifdef USE_UART_INPUT
         u08 len = cmd_uart_get_next(&cmd);
-#else
-        u08 len = cmd_spi_get_next(&cmd);
-#endif
 
         led_green(0);
         
@@ -64,8 +56,6 @@ int main(void)
             
             // report result
             if(res_size > 0) {
-                cmd_spi_set_result(result, res_size);
-                    
                 uart_send_string((u08 *)"res_len: ");
                 uart_send_hex_byte_crlf(res_size);
                 uart_send_data(result, res_size);

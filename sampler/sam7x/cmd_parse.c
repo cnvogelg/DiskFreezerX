@@ -4,6 +4,7 @@
 #include "trk_read.h"
 #include "spiram.h"
 #include "file.h"
+#include "uart.h"
 
 #define CMD_RES_ABORTED         0x80
 #define CMD_RES_FAIELD          0x40
@@ -13,6 +14,27 @@ static const u08 *in;
 static u08 *out;
 static u08 out_size;
 static u08 in_size;
+
+static u08 rx_buf[CMD_MAX_SIZE];
+static u08 rx_size;
+
+u08 cmd_uart_get_next(u08 **data)
+{
+    rx_size = 0;
+    while(1) {
+        while(!uart_read_ready()) {}
+        u08 c;
+        uart_read(&c);
+        uart_send(c);
+        if((c == '\n')||(c == '\r')) {
+            break;
+        }
+        rx_buf[rx_size] = c;
+        rx_size++;
+    }
+    *data = rx_buf;
+    return rx_size;
+}
 
 static void set_result(u08 val)
 {

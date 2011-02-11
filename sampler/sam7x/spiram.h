@@ -2,7 +2,7 @@
 #define SPIRAM_H
 
 #include "board.h"
-#include "spi.h"
+#include "spi_low.h"
 
 /* RAM size */
 #define SPIRAM_SIZE             32768
@@ -40,10 +40,10 @@ extern void spiram_read_dma(u08 *data, u16 size);
 extern void spiram_end_dma(void);
 
 __inline void spiram_write_byte(u08 data)
-{ spi_io(data); }
+{ spi_low_io(data); }
 
 __inline u08 spiram_read_byte(void)
-{ return spi_io(0xff); }
+{ return spi_low_io(0xff); }
 
 // ----- test -----------------------------------------------------------------
 

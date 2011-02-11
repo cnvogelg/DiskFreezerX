@@ -3,7 +3,13 @@
 
 #include "board.h"
 
+/* maximum size of a command or a result */
+#define CMD_MAX_SIZE 0x3f
+
+/* debug command get via uart */
+extern u08 cmd_uart_get_next(u08 **data);
+
 /* return 0 to quit */
-u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf);
+extern u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf);
 
 #endif
