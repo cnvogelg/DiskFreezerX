@@ -20,4 +20,9 @@ __inline u32 pit_peek(void)
   return *AT91C_PITC_PIIR;
 }
 
+typedef void (*pit_func)(void);
+
+extern void pit_irq_start(pit_func func_10ms, pit_func func_500ms);
+extern void pit_irq_stop(void);
+
 #endif

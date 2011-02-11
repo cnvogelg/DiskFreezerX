@@ -3,6 +3,7 @@
 #include "util.h"
 #include "trk_read.h"
 #include "spiram.h"
+#include "file.h"
 
 #define CMD_RES_ABORTED         0x80
 #define CMD_RES_FAIELD          0x40
@@ -220,6 +221,12 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
           }
           break;
 
+          // ----- FILE -----
+        case 'F':
+          {
+            file_test();
+          }
+          break;
             // ----- Track Read Commands -----
         case 'I':
             {

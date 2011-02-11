@@ -3,12 +3,21 @@
 #include "timer.h"
 #include "util.h"
 #include "spi.h"
+#include "pit.h"
+#include "diskio.h"
 
 #include "uart.h"
 #include "uartutil.h"
 
 #include "cmd_spi.h"
 #include "cmd_parse.h"
+
+static void led_proc(void)
+{
+  static u32 on = 0;
+  led_yellow(on);
+  on = 1-on;
+}
 
 int main(void)
 {
@@ -17,6 +26,8 @@ int main(void)
     uart_init();
     floppy_init();
     //timer_init();
+
+    pit_irq_start(disk_timerproc, led_proc);
 
     // say hello
     uart_send_string((u08 *)"--- dfx-sampler sam7x/SPI ---");
