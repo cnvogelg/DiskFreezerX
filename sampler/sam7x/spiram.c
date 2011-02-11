@@ -8,6 +8,9 @@
 
 void spiram_init(void)
 {
+  spi_low_mst_init();
+  spi_low_set_speed(0,8); // 48/8=6 MHz -> Clock for SPI RAM
+
   spi_low_dma_init();
   spi_low_set_channel(0);
   spi_low_enable();
@@ -196,7 +199,7 @@ int spiram_multi_write_next_buffer(void)
       // store for each buffer the chip
       spiram_buffer_on_chip[next_index] = spiram_chip_no;
 
-      // another buffer is reay
+      // another buffer is ready
       spiram_num_ready ++;
       return 1;
   }

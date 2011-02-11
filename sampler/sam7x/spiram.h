@@ -81,7 +81,7 @@ __inline void spiram_multi_write_handle(void)
       u32  chip_no = spiram_buffer_on_chip[spiram_dma_index];
 
       // advance to new write buffer
-      spiram_dma_index = (spiram_dma_index + 1) & 3;
+      spiram_dma_index = (spiram_dma_index + 1) & (SPIRAM_NUM_BUFFER - 1);
       spiram_num_ready --;
 
       // do we need to toggle chip?
