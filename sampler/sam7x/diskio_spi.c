@@ -45,20 +45,15 @@
  */
 /*-----------------------------------------------------------------------*/
 
-#define USE_BOARD_H       1
 #define USE_DMA           1
 #define USE_DMA_DUMMY_RAM 1
 #define USE_SOCKSWITCHES  1
 #define USE_POWERCONTROL  0
 
-#if USE_BOARD_H
-#include <board.h>
-#else /* !USE_BOARD_H */
-#include <at91sam7se512/AT91SAM7S256.h>
-#endif /* USE_BOARD_H */
-
+#include "board.h"
 #include "diskio.h"
 #include "sdpin.h"
+#include "spi_low.h"
 
 /* Definitions for MMC/SDC command */
 #define CMD0	(0x40+0)	/* GO_IDLE_STATE */
@@ -154,65 +149,15 @@ BYTE dma_dummy[DMA_DUMMY_SIZE] = {
 
 #define PMC_ID_CS             AT91C_ID_PIOA
 #define PPIO_BASE_CS          AT91C_BASE_PIOA
-#define CARD_SELECT_PIN       AT91C_PA11_NPCS0
 
-// select card ( MMC CS = L )
-static inline void SELECT( void )
-{
-	PPIO_BASE_CS->PIO_CODR = CARD_SELECT_PIN;
-}
-
-// unselect card MMC CS = H
-static inline void DESELECT( void )
-{
-	PPIO_BASE_CS->PIO_SODR = CARD_SELECT_PIN;
-}
+#define SELECT()   spi_low_enable_cs0()
+#define DESELECT() spi_low_disable_cs0()
 
 #define SOCKWP          0x20                    /* Write protect bit-mask (Bit5 set = */
 #define SOCKINS         0x10                    /* Card detect bit-mask   */
 
 #define get_SOCKWP() (sdpin_write_protect() ? SOCKWP : 0)
 #define get_SOCKINS() (sdpin_no_card() ? SOCKINS : 0)
-
-#if USE_POWERCONTROL
-#error USE_POWERCONTROL not implemented
-static inline void set_SOCKPOWER( BOOL on )
-{
-	pseudo-code
-	if ( on ) {
-		enable power (p-channel fet)
-	}
-	else {
-		disable power
-	}
-}
-// returns TRUE if power is enabled
-static inline BOOL get_SOCKPOWER( void )
-{
-	return xxx; todo
-}
-static void init_SOCKPOWER( void )
-{
-	todo: output to FET gate
-}
-#else
-static inline void set_SOCKPOWER( BOOL on )
-{
-	on = on;
-	return;
-}
-// returns TRUE if power is enabled
-static inline BOOL get_SOCKPOWER( void )
-{
-	return TRUE;
-}
-static void init_SOCKPOWER( void )
-{
-	return;
-}
-
-#endif /* USE_POWERCONTROL */
-
 
 static void AT91_spiSetSpeed(BYTE speed)
 {
@@ -360,13 +305,6 @@ static void init_spi( void )
 	// disable PIO from controlling the pins (so they are used for peripheral)
 	PPIO_BASE_SPI->PIO_PDR = AT91C_PA12_MISO | AT91C_PA13_MOSI | AT91C_PA14_SPCK;
 
-	/* set chip-select as output high (unselect card) */
-	/* manual control for CS !                        */
-	AT91C_BASE_PMC->PMC_PCER = ( 1 << PMC_ID_CS ); // enable needed PIO in PMC
-	PPIO_BASE_CS->PIO_PER  = CARD_SELECT_PIN;  // enable GPIO of CS-pin (disable peripheral functions)
-	PPIO_BASE_CS->PIO_SODR = CARD_SELECT_PIN;  // set high
-	PPIO_BASE_CS->PIO_OER  = CARD_SELECT_PIN;  // output enable
-
 	// enable peripheral clock for SPI ( PID Bit 5 )
 	AT91C_BASE_PMC->PMC_PCER = ( 1 << AT91C_ID_SPI ); // n.b. IDs are just bit-numbers
 
@@ -498,9 +436,6 @@ void release_spi (void)
 static
 void power_on (void)
 {
-	init_SOCKPOWER();
-	set_SOCKPOWER( TRUE );		/* Socket power ON */
-	for (Timer1 = 3; Timer1; );	/* Wait for 30ms */
 	init_spi();
 }
 
@@ -510,14 +445,13 @@ void power_off (void)
 	SELECT();				/* Wait for card ready */
 	wait_ready();
 	close_spi();
-	set_SOCKPOWER( FALSE );	/* Socket power OFF */
 	Stat |= STA_NOINIT;		/* Set STA_NOINIT */
 }
 
 static
 int chk_power(void)		/* Socket power state: 0=off, 1=on */
 {
-	return ( get_SOCKPOWER() ) ? 1 : 0;
+	return 1;
 }
 
 

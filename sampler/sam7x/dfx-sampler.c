@@ -5,6 +5,7 @@
 #include "pit.h"
 #include "diskio.h"
 #include "sdpin.h"
+#include "spi_low.h"
 
 #include "uart.h"
 #include "uartutil.h"
@@ -25,6 +26,7 @@ int main(void)
     uart_init();
     floppy_init();
     sdpin_init();
+    spi_low_cs_init();
     //timer_init();
 
     pit_irq_start(disk_timerproc, led_proc);

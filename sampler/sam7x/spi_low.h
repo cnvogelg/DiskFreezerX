@@ -20,6 +20,7 @@
 #define SPI_MULTI_ALL_MASK  (SPI_MULTI_EN_MASK | SPI_MULTI_A0_MASK | SPI_MULTI_A1_MASK | SPI_MULTI_A2_MASK)
 
 // setup SPI hardware
+extern void spi_low_cs_init(void);
 extern void spi_low_slv_init(void);
 extern void spi_low_mst_init(unsigned int scbr);
 extern void spi_low_close(void);

@@ -4,13 +4,20 @@
 
 // ----- SPI control -----
 
+void spi_low_cs_init(void)
+{
+  // Enable PIO for CSx
+  AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, 1 << AT91C_ID_PIOA ) ;
+
+  // manual config CS
+  AT91F_PIO_CfgOutput( AT91C_BASE_PIOA, SPI_CS0_MASK | SPI_MULTI_ALL_MASK );
+  AT91F_PIO_SetOutput( AT91C_BASE_PIOA, SPI_CS0_MASK | SPI_MULTI_ALL_MASK );
+}
+
 void spi_low_mst_init(unsigned int scbr)
 {
     // Enable SPI clock
     AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, 1 << AT91C_ID_SPI ) ;
-
-    // Enable PIO for CSx
-    AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, 1 << AT91C_ID_PIOA ) ;
 
     // Configure PIO controllers to periph mode
     AT91F_PIO_CfgPeriph(
@@ -20,10 +27,6 @@ void spi_low_mst_init(unsigned int scbr)
         ((unsigned int) AT91C_PA13_MOSI ) |
         ((unsigned int) AT91C_PA14_SPCK ), // Periph A
         0); // Periph B
-
-    // manual config CS
-    AT91F_PIO_CfgOutput( AT91C_BASE_PIOA, SPI_CS0_MASK | SPI_MULTI_ALL_MASK );
-    AT91F_PIO_SetOutput( AT91C_BASE_PIOA, SPI_CS0_MASK | SPI_MULTI_ALL_MASK );
 
     AT91PS_SPI spi = AT91C_BASE_SPI;
 
