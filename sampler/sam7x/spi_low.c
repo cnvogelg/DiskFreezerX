@@ -38,12 +38,23 @@ void spi_low_mst_init(void)
     // SPI mode: master mode
     // MODFDIS is required to allow manual CSx control
     spi->SPI_MR = AT91C_SPI_MSTR | AT91C_SPI_PS_FIXED | AT91C_SPI_MODFDIS;
+
+    // configure channels
+    spi->SPI_CSR[0] = AT91C_SPI_BITS_8 | AT91C_SPI_NCPHA; // SPI RAM
+    spi->SPI_CSR[1] = AT91C_SPI_BITS_8 | AT91C_SPI_CPOL;  // SD Card
 }
 
-void spi_low_set_channel(int client, int scbr)
+void spi_low_set_speed(int ch, int scbr)
 {
-     // CS0: 8 bits
-    AT91C_BASE_SPI->SPI_CSR[0] = AT91C_SPI_BITS_8 | AT91C_SPI_NCPHA | (scbr << 8);
+    // set new speed
+    u32 old = AT91C_BASE_SPI->SPI_CSR[ch] &  ~(AT91C_SPI_SCBR);
+    AT91C_BASE_SPI->SPI_CSR[ch] = old | (scbr << 8);
+}
+
+void spi_low_set_channel(int ch)
+{
+  u32 old = AT91C_BASE_SPI->SPI_MR &  ~(AT91C_SPI_PCS);
+  AT91C_BASE_SPI->SPI_MR = old | (ch << 16);
 }
 
 void spi_low_slv_init(void)

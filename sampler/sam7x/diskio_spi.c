@@ -159,31 +159,6 @@ BYTE dma_dummy[DMA_DUMMY_SIZE] = {
 #define get_SOCKWP() (sdpin_write_protect() ? SOCKWP : 0)
 #define get_SOCKINS() (sdpin_no_card() ? SOCKINS : 0)
 
-static void AT91_spiSetSpeed(BYTE speed)
-{
-	DWORD reg;
-
-	if ( speed < SPI_SCBR_MIN ) speed = SPI_SCBR_MIN;
-	if ( speed > 1 ) speed &= 0xFE;
-
-	reg = PSPI_BASE->SPI_CSR[SPI_CSR_NUM];
-	reg = ( reg & ~(AT91C_SPI_SCBR) ) | ( (DWORD)speed << 8 );
-	PSPI_BASE->SPI_CSR[SPI_CSR_NUM] = reg;
-}
-
-/* general AT91 SPI send/receive */
-static inline BYTE AT91_spi_write_read( BYTE outgoing )
-{
-	BYTE incoming;
-
-	while( !( PSPI_BASE->SPI_SR & AT91C_SPI_TDRE ) ); // transfer complete wait
-	PSPI_BASE->SPI_TDR = (WORD)( outgoing );
-	while( !( PSPI_BASE->SPI_SR & AT91C_SPI_RDRF ) ); // wait for char
-	incoming = (BYTE)( PSPI_BASE->SPI_RDR );
-
-	return incoming;
-}
-
 #if USE_DMA
 
 static inline void rcvr_block_dma (
@@ -300,70 +275,23 @@ BYTE CardType;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
 /*-----------------------------------------------------------------------*/
 static void init_spi( void )
 {
-	// set SPI pins to the peripheral function
-	PPIO_BASE_SPI->PIO_ASR = AT91C_PA12_MISO | AT91C_PA13_MOSI | AT91C_PA14_SPCK;
-	// disable PIO from controlling the pins (so they are used for peripheral)
-	PPIO_BASE_SPI->PIO_PDR = AT91C_PA12_MISO | AT91C_PA13_MOSI | AT91C_PA14_SPCK;
-
-	// enable peripheral clock for SPI ( PID Bit 5 )
-	AT91C_BASE_PMC->PMC_PCER = ( 1 << AT91C_ID_SPI ); // n.b. IDs are just bit-numbers
-
-	// SPI disable
-	PSPI_BASE->SPI_CR = AT91C_SPI_SPIDIS;
-
 #if USE_DMA
-	// init the SPI's PDC-controller:
-	// disable PDC TX and RX
-	PSPI_BASE->SPI_PTCR = AT91C_PDC_TXTDIS | AT91C_PDC_RXTDIS;
-	// init counters and buffer-pointers to 0
-	// "next" TX
-	PSPI_BASE->SPI_TNPR = 0;
-	PSPI_BASE->SPI_TNCR = 0;
-	// "next" RX
-	PSPI_BASE->SPI_RNPR = 0;
-	PSPI_BASE->SPI_RNCR = 0;
-	// TX
-	PSPI_BASE->SPI_TPR = 0;
-	PSPI_BASE->SPI_TCR = 0;
-	// RX
-	PSPI_BASE->SPI_RPR = 0;
-	PSPI_BASE->SPI_RCR = 0;
+  spi_low_dma_init();
 #endif /* USE_DMA */
 
-	// SPI enable and reset
-	// "It seems that the state machine for revB version needs to have 2 SPI
-	// software reset to properly reset the state machine."
-	PSPI_BASE->SPI_CR = AT91C_SPI_SWRST;
-	PSPI_BASE->SPI_CR = AT91C_SPI_SWRST;
-	PSPI_BASE->SPI_CR = AT91C_SPI_SPIEN;
+  spi_low_set_channel(1);
 
-	// SPI mode: master, FDIV=0, fault detection disabled
-	PSPI_BASE->SPI_MR  = AT91C_SPI_MSTR | AT91C_SPI_MODFDIS | (1<<16); // select periph 1
+  // slow during init
+  spi_low_set_speed(1,0xFE);
 
-	// set chip-select-register
-	// 8 bits per transfer, CPOL=1, ClockPhase=0, DLYBCT = 0
-	PSPI_BASE->SPI_CSR[SPI_CSR_NUM] = AT91C_SPI_CPOL | AT91C_SPI_BITS_8;
-
-	// slow during init
-	AT91_spiSetSpeed(0xFE);
-
-	// enable SPI
-	PSPI_BASE->SPI_CR = AT91C_SPI_SPIEN;
+  // enable SPI
+  spi_low_enable();
 }
 
 static void close_spi( void )
 {
-	// enable PIO-control for Pins
-	PPIO_BASE_SPI->PIO_PER = AT91C_PA12_MISO | AT91C_PA13_MOSI | AT91C_PA14_SPCK;
-	// disable PDC TX and RX
-	PSPI_BASE->SPI_PTCR = AT91C_PDC_TXTDIS | AT91C_PDC_RXTDIS;
-	// disable SPI
-	PSPI_BASE->SPI_CR = AT91C_SPI_SPIDIS;
-	// disable peripheral clock
-	AT91C_BASE_PMC->PMC_PCDR = ( 1 << AT91C_ID_SPI );
+  spi_low_disable();
 }
-
-
 
 /*-----------------------------------------------------------------------*/
 /* Transmit a byte to MMC via SPI  (Platform dependent)                  */
@@ -371,27 +299,19 @@ static void close_spi( void )
 
 static inline void xmit_spi( BYTE dat )
 {
-	AT91_spi_write_read( dat );
+  spi_low_io( dat );
 }
-
-
-
-/*-----------------------------------------------------------------------*/
-/* Receive a byte from MMC via SPI  (Platform dependent)                 */
-/*-----------------------------------------------------------------------*/
 
 static inline BYTE rcvr_spi (void)
 {
-	return AT91_spi_write_read( 0xff );
+  return spi_low_io( 0xff );
 }
 
 /* replacement for the AVR-Macro */
 static inline void rcvr_spi_m( BYTE *dst )
 {
-	*dst = rcvr_spi();
+  *dst = spi_low_io( 0xff );
 }
-
-
 
 /*-----------------------------------------------------------------------*/
 /* Wait for card ready                                                   */
@@ -402,17 +322,13 @@ BYTE wait_ready (void)
 {
 	BYTE res;
 
-
 	Timer2 = 50;	/* Wait for ready in timeout of 500ms */
 	rcvr_spi();
-	do
+	do {
 		res = rcvr_spi();
-	while ((res != 0xFF) && Timer2);
-
+	} while ((res != 0xFF) && Timer2);
 	return res;
 }
-
-
 
 /*-----------------------------------------------------------------------*/
 /* Deselect the card and release SPI bus                                 */
@@ -424,8 +340,6 @@ void release_spi (void)
 	DESELECT();
 	rcvr_spi();
 }
-
-
 
 /*-----------------------------------------------------------------------*/
 /* Power Control  (Platform dependent)                                   */
@@ -444,6 +358,7 @@ void power_off (void)
 {
 	SELECT();				/* Wait for card ready */
 	wait_ready();
+	DESELECT();
 	close_spi();
 	Stat |= STA_NOINIT;		/* Set STA_NOINIT */
 }
@@ -453,8 +368,6 @@ int chk_power(void)		/* Socket power state: 0=off, 1=on */
 {
 	return 1;
 }
-
-
 
 /*-----------------------------------------------------------------------*/
 /* Receive a data packet from MMC                                        */
@@ -545,7 +458,6 @@ BYTE send_cmd (
 {
 	BYTE n, res;
 
-
 	if (cmd & 0x80) {	/* ACMD<n> is the command sequence of CMD55-CMD<n> */
 		cmd &= 0x7F;
 		res = send_cmd(CMD55, 0);
@@ -578,14 +490,11 @@ BYTE send_cmd (
 	return res;			/* Return with the response value */
 }
 
-
-
 /*--------------------------------------------------------------------------
 
    Public Functions
 
 ---------------------------------------------------------------------------*/
-
 
 /*-----------------------------------------------------------------------*/
 /* Initialize Disk Drive                                                 */
@@ -647,7 +556,7 @@ DSTATUS disk_initialize (
 
 	if (ty) {			/* Initialization succeeded */
 		Stat &= ~STA_NOINIT;		/* Clear STA_NOINIT */
-		AT91_spiSetSpeed(SPI_SCBR_MIN);
+		spi_low_set_speed(1, SPI_SCBR_MIN);
 	} else {			/* Initialization failed */
 		power_off();
 	}

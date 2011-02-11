@@ -11,6 +11,7 @@ u08 spiram_dummy_buffer[SPIRAM_BUFFER_SIZE];
 void spiram_init(void)
 {
   spi_low_dma_init();
+  spi_low_set_channel(0);
   spi_low_enable();
 }
 

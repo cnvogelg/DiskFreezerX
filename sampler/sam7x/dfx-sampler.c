@@ -28,7 +28,7 @@ int main(void)
     sdpin_init();
     spi_low_cs_init();
     spi_low_mst_init();
-    spi_low_set_channel(0,8); // 48/8=6 MHz -> Clock for SPI RAM
+    spi_low_set_speed(0,8); // 48/8=6 MHz -> Clock for SPI RAM
     //timer_init();
 
     pit_irq_start(disk_timerproc, led_proc);
