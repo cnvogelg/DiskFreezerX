@@ -149,7 +149,7 @@ BYTE dma_dummy[DMA_DUMMY_SIZE] = {
 #define SPI_SCBR_MIN          2 /* 1 failed with my cards */
 // Chip-Select-Register Number (Array Index of SPI_CSR[])
 // here: NPCS0
-#define SPI_CSR_NUM           0
+#define SPI_CSR_NUM           1
 
 #define PMC_ID_CS             AT91C_ID_PIOA
 #define PPIO_BASE_CS          AT91C_BASE_PIOA
@@ -448,7 +448,7 @@ static void init_spi( void )
 	PSPI_BASE->SPI_CR = AT91C_SPI_SPIEN;
 
 	// SPI mode: master, FDIV=0, fault detection disabled
-	PSPI_BASE->SPI_MR  = AT91C_SPI_MSTR | AT91C_SPI_MODFDIS;
+	PSPI_BASE->SPI_MR  = AT91C_SPI_MSTR | AT91C_SPI_MODFDIS | (1<<16); // select periph 1
 
 	// set chip-select-register
 	// 8 bits per transfer, CPOL=1, ClockPhase=0, DLYBCT = 0
