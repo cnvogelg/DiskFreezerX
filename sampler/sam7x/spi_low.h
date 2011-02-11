@@ -25,7 +25,6 @@ extern void spi_low_slv_init(void);
 extern void spi_low_mst_init(void);
 extern void spi_low_set_speed(int ch, int scbr);
 extern void spi_low_set_channel(int ch);
-extern u08  spi_low_io(u08 d);
 
 __inline void spi_low_enable(void)
 {

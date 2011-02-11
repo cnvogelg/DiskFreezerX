@@ -6,8 +6,6 @@
 #include "spiram.h"
 #include "uartutil.h"
 
-u08 spiram_dummy_buffer[SPIRAM_BUFFER_SIZE];
-
 void spiram_init(void)
 {
   spi_low_dma_init();
@@ -26,14 +24,14 @@ u08 spiram_set_mode(u08 mode)
 
   // set mode in status register
   spi_low_enable_multi();
-  spi_low_io(SPIRAM_CMD_WRITE_STATUS);
-  spi_low_io(mode);
+  spi_io(SPIRAM_CMD_WRITE_STATUS);
+  spi_io(mode);
   spi_low_disable_multi();
 
   // read mode again
   spi_low_enable_multi();
-  spi_low_io(SPIRAM_CMD_READ_STATUS);
-  result = spi_low_io(0xff);
+  spi_io(SPIRAM_CMD_READ_STATUS);
+  result = spi_io(0xff);
   spi_low_disable_multi();
 
   return result;
@@ -42,42 +40,24 @@ u08 spiram_set_mode(u08 mode)
 void spiram_write_begin(u16 address)
 {
   spi_low_enable_multi();
-  spi_low_io(SPIRAM_CMD_WRITE);
-  spi_low_io((u08)((address >> 8)& 0xff)); // hi byte of addr
-  spi_low_io((u08)(address & 0xff));       // lo byte of addr
+  spi_io(SPIRAM_CMD_WRITE);
+  spi_io((u08)((address >> 8)& 0xff)); // hi byte of addr
+  spi_io((u08)(address & 0xff));       // lo byte of addr
   // now bytes will follow until CS is raised again...
 }
 
 void spiram_read_begin(u16 address)
 {
   spi_low_enable_multi();
-  spi_low_io(SPIRAM_CMD_READ);
-  spi_low_io((u08)((address >> 8)& 0xff)); // hi byte of addr
-  spi_low_io((u08)(address & 0xff));       // lo byte of addr
+  spi_io(SPIRAM_CMD_READ);
+  spi_io((u08)((address >> 8)& 0xff)); // hi byte of addr
+  spi_io((u08)(address & 0xff));       // lo byte of addr
   // now bytes will follow until CS is raised again...
 }
 
 void spiram_end(void)
 {
   spi_low_disable_multi();
-}
-
-void spiram_write_dma(const u08 *data, u16 size)
-{
-  spi_low_tx_dma_set_first(data,size);
-  spi_low_rx_dma_set_first(spiram_dummy_buffer,size);
-  spi_low_dma_enable();
-  while(!spi_low_rx_dma_empty());
-  spi_low_dma_disable();
-}
-
-void spiram_read_dma(u08 *data, u16 size)
-{
-  spi_low_tx_dma_set_first(spiram_dummy_buffer,size);
-  spi_low_rx_dma_set_first(data,size); // addr must be != 0 otherwise breaks
-  spi_low_dma_enable();
-  while(!spi_low_rx_dma_empty());
-  spi_low_dma_disable();
 }
 
 // ----- MULTI RAM ------------------------------------------------------------
@@ -130,7 +110,7 @@ int spiram_multi_clear(u08 value)
       spi_low_set_multi(i);
       spiram_write_begin(0);
       for(int j=0;j<SPIRAM_NUM_BANKS;j++) {
-          spiram_write_dma(buf, SPIRAM_BUFFER_SIZE);
+          spi_write_dma(buf, SPIRAM_BUFFER_SIZE);
       }
       spiram_end();
   }
@@ -141,7 +121,7 @@ int spiram_multi_clear(u08 value)
       spi_low_set_multi(i);
       spiram_read_begin(0);
       for(int j=0;j<SPIRAM_NUM_BANKS;j++) {
-          spiram_read_dma(buf, SPIRAM_BUFFER_SIZE);
+          spi_read_dma(buf, SPIRAM_BUFFER_SIZE);
           for(int k=0;k<SPIRAM_BUFFER_SIZE;k++) {
               if(buf[k]!=value) {
                   error_flag ++;
@@ -320,10 +300,10 @@ u32 spiram_dma_test(u08 begin,u16 size)
   // write
   spiram_write_begin(0);
   for(int p=0;p<pages;p++) {
-      spiram_write_dma(data,page_size);
+      spi_write_dma(data,page_size);
   }
   if(remain > 0) {
-      spiram_write_dma(data,remain);
+      spi_write_dma(data,remain);
   }
   spiram_end();
 
@@ -334,7 +314,7 @@ u32 spiram_dma_test(u08 begin,u16 size)
   u32 read_errors = 0;
   spiram_read_begin(0);
   for(int p=0;p<pages;p++) {
-      spiram_read_dma(data,page_size);
+      spi_read_dma(data,page_size);
 
       // check
       d = begin;
@@ -346,7 +326,7 @@ u32 spiram_dma_test(u08 begin,u16 size)
       }
   }
   if(remain > 0) {
-      spiram_read_dma(data,remain);
+      spi_read_dma(data,remain);
 
       // check
       d = begin;

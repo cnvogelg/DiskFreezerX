@@ -2,7 +2,7 @@
 #define SPIRAM_H
 
 #include "board.h"
-#include "spi_low.h"
+#include "spi.h"
 
 /* RAM size */
 #define SPIRAM_SIZE             32768
@@ -12,7 +12,7 @@
 #define SPIRAM_MODE_SEQ         0x40
 
 // 4 * 512 Bytes DMA buffer
-#define SPIRAM_BUFFER_SIZE     512
+#define SPIRAM_BUFFER_SIZE     SPI_BUFFER_SIZE
 #define SPIRAM_NUM_BUFFER       4
 #define SPIRAM_NUM_BANKS       (SPIRAM_SIZE / SPIRAM_BUFFER_SIZE)
 
@@ -35,15 +35,11 @@ extern void spiram_write_begin(u16 address);
 extern void spiram_read_begin(u16 address);
 extern void spiram_end(void);
 
-extern void spiram_write_dma(const u08 *data, u16 size);
-extern void spiram_read_dma(u08 *data, u16 size);
-extern void spiram_end_dma(void);
-
 __inline void spiram_write_byte(u08 data)
-{ spi_low_io(data); }
+{ spi_io(data); }
 
 __inline u08 spiram_read_byte(void)
-{ return spi_low_io(0xff); }
+{ return spi_io(0xff); }
 
 // ----- test -----------------------------------------------------------------
 
@@ -73,7 +69,6 @@ extern u32  spiram_num_ready;
 extern u32  spiram_dma_index;
 extern u32  spiram_dma_chip_no;
 extern u32  spiram_total;
-extern u08  spiram_dummy_buffer[SPIRAM_BUFFER_SIZE];
 
 /* handle DMA page flipping */
 __inline void spiram_multi_write_handle(void)
@@ -98,7 +93,7 @@ __inline void spiram_multi_write_handle(void)
       }
 
       // start next DMA
-      spi_low_rx_dma_set_next(spiram_dummy_buffer, SPIRAM_BUFFER_SIZE);
+      spi_low_rx_dma_set_next(spi_dummy_buffer, SPIRAM_BUFFER_SIZE);
       spi_low_tx_dma_set_next(ptr, SPIRAM_BUFFER_SIZE);
   }
 }

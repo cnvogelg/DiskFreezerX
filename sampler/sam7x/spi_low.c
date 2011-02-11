@@ -141,16 +141,3 @@ void spi_low_set_multi(int num)
   int clr_mask = ((num ^ 0x7) & 0x7) << SPI_MULTI_A0_PIN;
   AT91F_PIO_ClearOutput( AT91C_BASE_PIOA, clr_mask );
 }
-
-// ----- Byte I/O -----
-
-u08 spi_low_io(u08 d)
-{
-  while(!spi_low_tx_empty());
-  spi_low_tx_byte(d);
-  while(!spi_low_rx_full());
-  return spi_low_rx_byte();
-}
-
-
-
