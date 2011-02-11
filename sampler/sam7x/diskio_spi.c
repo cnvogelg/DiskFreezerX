@@ -58,6 +58,7 @@
 #endif /* USE_BOARD_H */
 
 #include "diskio.h"
+#include "sdpin.h"
 
 /* Definitions for MMC/SDC command */
 #define CMD0	(0x40+0)	/* GO_IDLE_STATE */
@@ -167,60 +168,11 @@ static inline void DESELECT( void )
 	PPIO_BASE_CS->PIO_SODR = CARD_SELECT_PIN;
 }
 
-#define SOCKWP		0x20			/* Write protect bit-mask (Bit5 set = */
-#define SOCKINS		0x10			/* Card detect bit-mask   */
+#define SOCKWP          0x20                    /* Write protect bit-mask (Bit5 set = */
+#define SOCKINS         0x10                    /* Card detect bit-mask   */
 
-#if USE_SOCKSWITCHES
-#ifndef SD_SOCKET_WP_PIN
-/// Pin connected to the Write-Protect WP switch of the card socket
-#define SD_SOCKET_WP_PIN      AT91C_PIO_PA16
-#endif
-#ifndef SD_SOCKET_INS_PIN
-/// Pin connected to the Insert/Card Detect switch of the card socket
-#define SD_SOCKET_INS_PIN     AT91C_PIO_PA15
-#endif
-
-#define PIOA AT91C_BASE_PIOA
-
-static inline BYTE get_SOCKWP(void)
-{
-	return ( PIOA->PIO_PDSR & SD_SOCKET_WP_PIN ) ? SOCKWP /*protected*/ : 0 /* unprotected */;
-}
-static inline BYTE get_SOCKINS(void)
-{
-	return ( PIOA->PIO_PDSR & SD_SOCKET_INS_PIN ) ?  SOCKINS /*no card*/ : 0 /* card inserted */;
-}
-
-static void init_SOCKWP_SOCKINS( void )
-{
-	/* set Pin as Input, no internal pulls, glitch detection */
-	AT91C_BASE_PMC->PMC_PCER = ( 1 << PMC_ID_CS ); // enable needed PIO in PMC
-	PIOA->PIO_PPUDR = SD_SOCKET_WP_PIN; // disable pull-up (is external)
-	PIOA->PIO_IFER  = SD_SOCKET_WP_PIN; // enable filter
-	PIOA->PIO_ODR   = SD_SOCKET_WP_PIN; // disable output
-	PIOA->PIO_SODR  = SD_SOCKET_WP_PIN; // set high
-	PIOA->PIO_PER   = SD_SOCKET_WP_PIN; // enable
-	PIOA->PIO_PPUDR = SD_SOCKET_INS_PIN; // disable pull-up (is external)
-	PIOA->PIO_IFER  = SD_SOCKET_INS_PIN; // enable filter
-	PIOA->PIO_ODR   = SD_SOCKET_INS_PIN; // disable output
-	PIOA->PIO_SODR  = SD_SOCKET_INS_PIN; // set high
-	PIOA->PIO_PER   = SD_SOCKET_INS_PIN; // enable
-}
-#else
-static inline BYTE get_SOCKWP(void)
-{
-	return 0; /* fake unprotected */
-}
-static inline BYTE get_SOCKINS(void)
-{
-	return 0; /* fake inserted */
-}
-static void init_SOCKWP_SOCKINS( void )
-{
-	return;
-}
-#endif /* USE_SOCKSWITCHES */
-
+#define get_SOCKWP() (sdpin_write_protect() ? SOCKWP : 0)
+#define get_SOCKINS() (sdpin_no_card() ? SOCKINS : 0)
 
 #if USE_POWERCONTROL
 #error USE_POWERCONTROL not implemented
@@ -549,7 +501,6 @@ void power_on (void)
 	init_SOCKPOWER();
 	set_SOCKPOWER( TRUE );		/* Socket power ON */
 	for (Timer1 = 3; Timer1; );	/* Wait for 30ms */
-	init_SOCKWP_SOCKINS();      /* Init socket-switches */
 	init_spi();
 }
 
