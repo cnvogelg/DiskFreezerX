@@ -433,7 +433,6 @@ void trk_read_to_spiram(void)
     u32 delta = timer2_get_capture_a();
 
     // core loop for reading a track
-    u08 ch = 0;
     while(index_counter > 0) {
 
         // cell sample timer
@@ -448,8 +447,8 @@ void trk_read_to_spiram(void)
                 cell_overflow_values[cell_overflows] = delta;
                 cell_overflows++;
             } else {
-                //u08 d = (u08)(delta & 0xff);
-                spiram_multi_write_byte(ch++);
+                u08 d = (u08)(delta & 0xff);
+                spiram_multi_write_byte(d);
             }
 
             // index marker was found

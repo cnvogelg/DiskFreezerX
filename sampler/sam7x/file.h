@@ -4,7 +4,7 @@
 #include "board.h"
 
 void file_dir(void);
-void file_save(u32 offset, u32 size);
+void file_save(u32 size);
 
 #endif
 

@@ -251,7 +251,11 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
           break;
         case 'F':
           {
-            file_save(0,SPIRAM_TOTAL_SIZE);
+            read_status_t *rs = trk_read_get_status();
+            u32 size = rs->data_size;
+            if(size > 0) {
+                file_save(size);
+            }
           }
           break;
             // ----- Track Read Commands -----

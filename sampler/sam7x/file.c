@@ -31,19 +31,15 @@ DWORD get_fattime(void)
                         (((DWORD)          0) >>  1);  // Sec
 }
 
-void file_save(u32 offset, u32 size)
+void file_save(u32 size)
 {
+  u32 checksum = 0;
+
   uart_send_string((u08 *)"file save");
   uart_send_crlf();
 
   // perform SPI reset to be sage
   spi_low_mst_init();
-
-  // setup SPIRAM
-  if(spiram_multi_init()) {
-      uart_send_string((u08 *)"spiram init failed");
-      uart_send_crlf();
-  }
 
   // enable tick irq
   pit_irq_start(disk_timerproc, led_proc);
@@ -80,31 +76,50 @@ void file_save(u32 offset, u32 size)
       // work buffer for data transfer is shared with spiram's buffers
       u08 *data = &spiram_buffer[0][0];
 
-      // read from spi ram
-      spi_low_set_channel(0);
-      spi_low_set_multi(0);
-      spiram_read_begin(0);
-      spi_read_dma(data, SPIRAM_BUFFER_SIZE);
-      spiram_end();
-
-      // dump data
-      u08 *buf = data;
-      u32 addr = 0;
-      const u32 line_size = 16;
-      u32 lines = SPIRAM_BUFFER_SIZE / line_size;
-      for(u32 i=0;i<lines;i++) {
-          uart_send_hex_line_crlf(addr,buf,line_size);
-          addr += line_size;
-          buf += line_size;
+      // setup SPIRAM
+      if(spiram_multi_init()) {
+          uart_send_string((u08 *)"spiram init failed");
+          uart_send_crlf();
       }
 
+      u32 bank = 0;
+      u32 addr = 0;
+      u32 chip_no = 0;
+      spi_low_set_multi(0);
+      while(size > 0) {
 
-      // write to SD
-      UINT written;
-      result = f_write(&fh,data,SPIRAM_BUFFER_SIZE,&written);
-      if(result != FR_OK) {
-          uart_send_string((u08 *)"write error!");
-          uart_send_crlf();
+          // read block from SPIRAM
+          spi_low_set_channel(0);
+          spiram_read_begin(addr);
+          spi_read_dma(data, SPIRAM_BUFFER_SIZE);
+          spiram_end();
+
+          u32 blk_size = (size > SPIRAM_BUFFER_SIZE) ? SPIRAM_BUFFER_SIZE : size;
+          if((bank == (SPIRAM_NUM_BUFFER - 1)) && (blk_size == SPIRAM_BUFFER_SIZE)) {
+              blk_size -= 3;
+          }
+          for(int i=0;i<blk_size;i++) {
+              checksum += data[i];
+          }
+
+          // write to SD
+          UINT written;
+          result = f_write(&fh,data,blk_size,&written);
+          if(result != FR_OK) {
+              uart_send_string((u08 *)"write error!");
+              uart_send_crlf();
+          }
+
+          size -= blk_size;
+          bank ++;
+          addr += SPIRAM_BUFFER_SIZE;
+          if(bank == SPIRAM_NUM_BUFFER) {
+              bank = 0;
+              addr = 0;
+              chip_no ++;
+
+              spi_low_set_multi(chip_no);
+          }
       }
 
       f_close(&fh);
@@ -116,8 +131,8 @@ void file_save(u32 offset, u32 size)
 
   pit_irq_stop();
 
-  uart_send_string((u08 *)"done");
-  uart_send_crlf();
+  uart_send_string((u08 *)"done. checksum: ");
+  uart_send_hex_dword_crlf(checksum);
 }
 
 void file_dir(void)
