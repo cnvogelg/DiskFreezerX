@@ -6,8 +6,8 @@
 
 #include "board.h"
 
-// write protect pin: PA16
-#define SD_SOCKET_WP_PIN      AT91C_PIO_PA16
+// write protect pin: PA25
+#define SD_SOCKET_WP_PIN      AT91C_PIO_PA25
 // card insert pin:   PA15
 #define SD_SOCKET_INS_PIN     AT91C_PIO_PA15
 

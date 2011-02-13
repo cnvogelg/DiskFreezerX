@@ -4,26 +4,26 @@
 #include "board.h"
 #include "spi.h"
 
-/* RAM size */
-#define SPIRAM_SIZE             32768
+/* RAM size per chip and total */
+#define SPIRAM_CHIP_SIZE        32768
+#define SPIRAM_NUM_CHIPS        8
+#define SPIRAM_TOTAL_SIZE      (SPIRAM_NUM_CHIPS * SPIRAM_CHIP_SIZE)
 
+/* DMA buffers here on SAM */
+#define SPIRAM_BUFFER_SIZE     SPI_BUFFER_SIZE
+#define SPIRAM_NUM_BUFFER       4
+#define SPIRAM_NUM_BANKS       (SPIRAM_CHIP_SIZE / SPIRAM_BUFFER_SIZE)
+
+/* SPI chip modes */
 #define SPIRAM_MODE_BYTE        0x00
 #define SPIRAM_MODE_PAGE        0x80
 #define SPIRAM_MODE_SEQ         0x40
-
-// 4 * 512 Bytes DMA buffer
-#define SPIRAM_BUFFER_SIZE     SPI_BUFFER_SIZE
-#define SPIRAM_NUM_BUFFER       4
-#define SPIRAM_NUM_BANKS       (SPIRAM_SIZE / SPIRAM_BUFFER_SIZE)
 
 /* SPI commands of SRAM */
 #define SPIRAM_CMD_READ         0x03
 #define SPIRAM_CMD_WRITE        0x02
 #define SPIRAM_CMD_READ_STATUS  0x05
 #define SPIRAM_CMD_WRITE_STATUS 0x01
-
-/* number of chips in multi ram */
-#define SPIRAM_NUM_CHIPS        8
 
 // ----- spiram functions -----------------------------------------------------
 

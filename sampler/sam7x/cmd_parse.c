@@ -196,7 +196,7 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
         case 'M':
           {
               num = parse_hex_byte(0);
-              u32 errors = spiram_test(num,SPIRAM_SIZE);
+              u32 errors = spiram_test(num,SPIRAM_CHIP_SIZE);
               if(errors > 0) {
                   set_dword(errors);
               }
@@ -206,7 +206,7 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
         case 'N':
            {
                num = parse_hex_byte(0);
-               u32 errors = spiram_dma_test(num,SPIRAM_SIZE);
+               u32 errors = spiram_dma_test(num,SPIRAM_CHIP_SIZE);
                if(errors > 0) {
                    set_dword(errors);
                }
@@ -244,9 +244,14 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
           break;
 
           // ----- FILE -----
+        case 'X':
+          {
+            file_dir();
+          }
+          break;
         case 'F':
           {
-            file_test();
+            file_save(0,SPIRAM_TOTAL_SIZE);
           }
           break;
             // ----- Track Read Commands -----

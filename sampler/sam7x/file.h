@@ -3,7 +3,8 @@
 
 #include "board.h"
 
-void file_test(void);
+void file_dir(void);
+void file_save(u32 offset, u32 size);
 
 #endif
 

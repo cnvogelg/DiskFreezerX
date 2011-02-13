@@ -266,6 +266,9 @@ BYTE send_cmd (
       if (res > 1) return res;
   }
 
+  // select SPI channel for SD
+  spi_low_set_channel(1);
+
   /* Select the card and wait for ready */
   DESELECT();
   SELECT();
@@ -338,6 +341,7 @@ DSTATUS disk_initialize (
       while(Timer1);
       retries--;
   }
+  uart_send_hex_dword_crlf(Stat);
 
   if (Stat & STA_NODISK) return Stat;	/* No card in the socket */
 

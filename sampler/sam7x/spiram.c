@@ -371,7 +371,7 @@ u32 spiram_dump(u08 chip_no,u08 bank)
   spiram_end();
 
   // dump to serial
-  addr += chip_no * SPIRAM_SIZE;
+  addr += chip_no * SPIRAM_CHIP_SIZE;
   const u32 line_size = 16;
   u32 lines = SPIRAM_BUFFER_SIZE / line_size;
   for(u32 i=0;i<lines;i++) {
