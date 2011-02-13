@@ -6,6 +6,7 @@
 
 #include "board.h"
 
+extern void pit_set_max(u32 max);
 extern void pit_enable(void);
 extern void pit_disable(void);
 extern void pit_reset(void);

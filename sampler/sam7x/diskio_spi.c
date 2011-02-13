@@ -45,15 +45,11 @@
  */
 /*-----------------------------------------------------------------------*/
 
-#define USE_DMA           1
-#define USE_DMA_DUMMY_RAM 1
-#define USE_SOCKSWITCHES  1
-#define USE_POWERCONTROL  0
-
 #include "board.h"
 #include "diskio.h"
 #include "sdpin.h"
 #include "spi.h"
+#include "uartutil.h"
 
 /* Definitions for MMC/SDC command */
 #define CMD0	(0x40+0)	/* GO_IDLE_STATE */
@@ -73,66 +69,6 @@
 #define CMD25	(0x40+25)	/* WRITE_MULTIPLE_BLOCK */
 #define CMD55	(0x40+55)	/* APP_CMD */
 #define CMD58	(0x40+58)	/* READ_OCR */
-
-
-/*--------------------------------------------------------------------------
-
-   DMA/PDC - support ( Martin Thomas )
-
----------------------------------------------------------------------------*/
-/* Dummy-Array to kick SPI-transfers thru PDC for block read.
-   If the array is placed in flash (with const) the transfer
-   is a little slower but this saves 512 bytes of RAM.
-   Define #USE_DUMMY_RAM with 1 to place this array in RAM.
- */
-#if USE_DMA
-#define DMA_DUMMY_SIZE 512
-#if USE_DMA_DUMMY_RAM
-static
-#else
-static const
-#endif /* USE_DMA_DUMMY_RAM */
-BYTE dma_dummy[DMA_DUMMY_SIZE] = {
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF };
-#endif /* USE_DMA */
-
-
 
 /*--------------------------------------------------------------------------
 
@@ -159,101 +95,6 @@ BYTE dma_dummy[DMA_DUMMY_SIZE] = {
 #define get_SOCKWP() (sdpin_write_protect() ? SOCKWP : 0)
 #define get_SOCKINS() (sdpin_no_card() ? SOCKINS : 0)
 
-#if USE_DMA
-
-static inline void rcvr_block_dma (
-    BYTE *buff,			/* Data buffer to store received data */
-    UINT btr			/* Byte count (must be multiple of 4) */
-)
-{
-  volatile DWORD dummy;
-
-  PSPI_BASE->SPI_RPR = (DWORD)buff; // destination address
-  PSPI_BASE->SPI_RCR = btr; // number of frames (here: frame=byte)
-  // SPI PDC TX buffer (dummy bytes):
-  PSPI_BASE->SPI_TPR = (DWORD)dma_dummy; // source address
-  PSPI_BASE->SPI_TCR = btr; // number of frames (here: frame=byte)
-  // enable PDC TX and RX
-  PSPI_BASE->SPI_PTCR = AT91C_PDC_TXTEN | AT91C_PDC_RXTEN;
-  while( !( (PSPI_BASE->SPI_SR) & AT91C_SPI_RXBUFF ) ) {
-      // wait for RX Buffer Full (counters 0)
-  }
-  dummy = PSPI_BASE->SPI_SR;   // read status to clear flags
-  // disable PDC TX and RX
-  PSPI_BASE->SPI_PTCR = AT91C_PDC_TXTDIS | AT91C_PDC_RXTDIS;
-}
-
-
-#define XMIT_TEST 2
-
-#if (XMIT_TEST==1)
-
-// TODO: temporary workaround since RCR=0, end RXTDIS did not
-// work reliably. Find out why writes may fail if PDC receive is
-// disabled and RCR is set to 0.
-static BYTE xmit_rec_dummy[512];
-
-static inline void xmit_datablock_dma (
-    const BYTE *buff	/* 512 byte data block to be transmitted */
-)
-{
-  volatile DWORD dummy;
-
-  // Dummy Receive-Buffering
-  PSPI_BASE->SPI_RPR  = (DWORD)xmit_rec_dummy;
-  PSPI_BASE->SPI_RCR  = 512;
-  // SPI PDC TX buffer
-  PSPI_BASE->SPI_TPR = (DWORD)buff;  // source address
-  PSPI_BASE->SPI_TCR = 512;          // number of frames
-  // Transmitter transfer enable
-  PSPI_BASE->SPI_PTCR = AT91C_PDC_TXTEN | AT91C_PDC_RXTEN;
-  while( !( (PSPI_BASE->SPI_SR) & AT91C_SPI_RXBUFF ) ) {
-      // wait for RX Buffer Full (counters 0)
-  }
-  dummy = PSPI_BASE->SPI_SR;   // read status to clear flags
-  // Transmitter transfer disable
-  PSPI_BASE->SPI_PTCR = AT91C_PDC_TXTDIS | AT91C_PDC_RXTDIS;
-}
-
-#elif (XMIT_TEST==2)
-// seems to work - of it does not work for you select XMIT_TEST 1
-// The following may be full of paranoia checks, but a few tests worked as
-// expected and I will not change this before more tests can be done.
-static inline void xmit_datablock_dma (
-    const BYTE *buff	/* 512 byte data block to be transmitted */
-)
-{
-  volatile DWORD dummy;
-
-  // SPI PDC TX buffer
-  PSPI_BASE->SPI_RPR   = (DWORD)&dummy;
-  PSPI_BASE->SPI_RPR   = 0;
-  PSPI_BASE->SPI_RCR   = 0;
-  PSPI_BASE->SPI_RNCR  = 0;
-  PSPI_BASE->SPI_TPR   = (DWORD)buff;  // source address
-  PSPI_BASE->SPI_TCR   = 512;          // number of frames
-  // Transmitter transfer enable
-  PSPI_BASE->SPI_PTCR = AT91C_PDC_TXTEN;
-  while( PSPI_BASE->SPI_TCR ) {
-      // wait for transmit PDC counter 0
-  }
-  while( !( (PSPI_BASE->SPI_SR) & AT91C_SPI_TXEMPTY ) ) {
-      // wait for TDR and shifter empty
-  }
-  // "When the received data is read, the RDRF bit is cleared."
-  dummy = PSPI_BASE->SPI_RDR;
-  // "The user has to read the status register to clear the OVRES bit."
-  dummy = PSPI_BASE->SPI_SR;
-  // Transmitter transfer disable
-  PSPI_BASE->SPI_PTCR = AT91C_PDC_TXTDIS;
-}
-#else
-#error "unknown xmit selection"
-#endif
-
-
-#endif /* USE_DMA */
-
 /*--------------------------------------------------------------------------
 
    Module Private Functions ( ChaN )
@@ -275,10 +116,8 @@ BYTE CardType;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
 /*-----------------------------------------------------------------------*/
 static void init_spi( void )
 {
-#if USE_DMA
+  spi_low_mst_init();
   spi_low_dma_init();
-#endif /* USE_DMA */
-
   spi_low_set_channel(1);
 
   // slow during init
@@ -294,26 +133,6 @@ static void close_spi( void )
 }
 
 /*-----------------------------------------------------------------------*/
-/* Transmit a byte to MMC via SPI  (Platform dependent)                  */
-/*-----------------------------------------------------------------------*/
-
-static inline void xmit_spi( BYTE dat )
-{
-  spi_io( dat );
-}
-
-static inline BYTE rcvr_spi (void)
-{
-  return spi_io( 0xff );
-}
-
-/* replacement for the AVR-Macro */
-static inline void rcvr_spi_m( BYTE *dst )
-{
-  *dst = spi_io( 0xff );
-}
-
-/*-----------------------------------------------------------------------*/
 /* Wait for card ready                                                   */
 /*-----------------------------------------------------------------------*/
 
@@ -323,9 +142,9 @@ BYTE wait_ready (void)
   BYTE res;
 
   Timer2 = 50;	/* Wait for ready in timeout of 500ms */
-  rcvr_spi();
+  spi_io(0xff);
   do {
-      res = rcvr_spi();
+      res = spi_io(0xff);
   } while ((res != 0xFF) && Timer2);
   return res;
 }
@@ -338,7 +157,7 @@ static
 void release_spi (void)
 {
   DESELECT();
-  rcvr_spi();
+  spi_io(0xff);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -381,30 +200,19 @@ BOOL rcvr_datablock (
 {
   BYTE token;
 
-
   Timer1 = 10;
   do {							/* Wait for data packet in timeout of 100ms */
-      token = rcvr_spi();
+      token = spi_io(0xff);
   } while ((token == 0xFF) && Timer1);
   if(token != 0xFE) return FALSE;	/* If not valid data token, return with error */
 
-#if USE_DMA
-  rcvr_block_dma( buff, btr );
-#else
-  do {							/* Receive the data block into buffer */
-      rcvr_spi_m(buff++);
-      rcvr_spi_m(buff++);
-      rcvr_spi_m(buff++);
-      rcvr_spi_m(buff++);
-  } while (btr -= 4);
-#endif /* USE_DMA */
-  rcvr_spi();						/* Discard CRC */
-  rcvr_spi();
+  spi_read_dma( buff, btr );
+
+  spi_io(0xff);						/* Discard CRC */
+  spi_io(0xff);
 
   return TRUE;					/* Return with success */
 }
-
-
 
 /*-----------------------------------------------------------------------*/
 /* Send a data packet to MMC                                             */
@@ -417,25 +225,19 @@ BOOL xmit_datablock (
     BYTE token			/* Data/Stop token */
 )
 {
-  BYTE resp, wc;
-
+  BYTE resp;
 
   if (wait_ready() != 0xFF) return FALSE;
 
-  xmit_spi(token);					/* Xmit data token */
+  spi_io(token);					/* Xmit data token */
   if (token != 0xFD) {	/* Is data token */
-      wc = 0;
-#if USE_DMA
-      xmit_datablock_dma( buff );
-#else
-      do {							/* Xmit the 512 byte data block to MMC */
-          xmit_spi(*buff++);
-          xmit_spi(*buff++);
-      } while (--wc);
-#endif /* USE_DMA */
-      xmit_spi(0xFF);					/* CRC (Dummy) */
-      xmit_spi(0xFF);
-      resp = rcvr_spi();				/* Receive data response */
+
+      spi_write_dma(buff,512);
+
+      spi_io(0xFF);					/* CRC (Dummy) */
+      spi_io(0xFF);
+
+      resp = spi_io(0xff);				/* Receive data response */
       if ((resp & 0x1F) != 0x05)		/* If not accepted, return with error */
         return FALSE;
   }
@@ -470,21 +272,21 @@ BYTE send_cmd (
   if (wait_ready() != 0xFF) return 0xFF;
 
   /* Send command packet */
-  xmit_spi(cmd);						/* Start + Command index */
-  xmit_spi((BYTE)(arg >> 24));		/* Argument[31..24] */
-  xmit_spi((BYTE)(arg >> 16));		/* Argument[23..16] */
-  xmit_spi((BYTE)(arg >> 8));			/* Argument[15..8] */
-  xmit_spi((BYTE)arg);				/* Argument[7..0] */
+  spi_io(cmd);						/* Start + Command index */
+  spi_io((BYTE)(arg >> 24));		/* Argument[31..24] */
+  spi_io((BYTE)(arg >> 16));		/* Argument[23..16] */
+  spi_io((BYTE)(arg >> 8));			/* Argument[15..8] */
+  spi_io((BYTE)arg);				/* Argument[7..0] */
   n = 0x01;							/* Dummy CRC + Stop */
   if (cmd == CMD0) n = 0x95;			/* Valid CRC for CMD0(0) */
   if (cmd == CMD8) n = 0x87;			/* Valid CRC for CMD8(0x1AA) */
-  xmit_spi(n);
+  spi_io(n);
 
   /* Receive command response */
-  if (cmd == CMD12) rcvr_spi();		/* Skip a stuff byte when stop reading */
+  if (cmd == CMD12) spi_io(0xff);		/* Skip a stuff byte when stop reading */
   n = 10;								/* Wait for a valid response in timeout of 10 attempts */
   do
-    res = rcvr_spi();
+    res = spi_io(0xff);
   while ((res & 0x80) && --n);
 
   return res;			/* Return with the response value */
@@ -504,39 +306,53 @@ DSTATUS disk_initialize (
     BYTE drv		/* Physical drive number (0) */
 )
 {
-  BYTE n, cmd, ty, ocr[4];
+  BYTE pv, n, cmd, ty, ocr[4];
 
-#if 0
-  static BYTE pv;
-  pv = get_SOCKWP() | get_SOCKINS();
-  if (pv & SOCKINS) /* INS = H (Socket empty) */
-    xprintf("not inserted\n");
-  else {
-      /* INS = L (Card inserted) */
-      xprintf("inserted\n");
-      if (pv & SOCKWP) /* WP is H (write protected) */
-        xprintf("protected\n");
-      else
-        /* WP is L (write enabled) */
-        xprintf("unprotected\n");
+  if (drv) return STA_NOINIT;                 /* Supports only single drive */
+
+  Stat = STA_NOINIT;
+
+  // check for card
+  pv = 0xff;
+  int retries = 100;
+  while(retries) {
+      n = pv;
+      pv = get_SOCKWP() | get_SOCKINS();
+      if (n == pv) {                                        /* Have contacts stabled? */
+          DSTATUS s = Stat;
+
+          if (pv & SOCKWP)                  /* WP is H (write protected) */
+            s |= STA_PROTECT;
+          else                                              /* WP is L (write enabled) */
+            s &= ~STA_PROTECT;
+
+          if (pv & SOCKINS)                 /* INS = H (Socket empty) */
+            s |= (STA_NODISK | STA_NOINIT);
+          else                                              /* INS = L (Card inserted) */
+            s &= ~STA_NODISK;
+
+          Stat = s;
+          break;
+      }
+      Timer1 = 1;
+      while(Timer1);
+      retries--;
   }
-#endif
 
-  if (drv) return STA_NOINIT;			/* Supports only single drive */
   if (Stat & STA_NODISK) return Stat;	/* No card in the socket */
 
   power_on();							/* Force socket power on */
-  for (n = 10; n; n--) rcvr_spi();	/* 80 dummy clocks */
+  for (n = 10; n; n--) spi_io(0xff);	/* 80 dummy clocks */
 
   ty = 0;
   if (send_cmd(CMD0, 0) == 1) {			/* Enter Idle state */
       Timer1 = 100;						/* Initialization timeout of 1000 msec */
       if (send_cmd(CMD8, 0x1AA) == 1) {	/* SDHC */
-          for (n = 0; n < 4; n++) ocr[n] = rcvr_spi();		/* Get trailing return value of R7 resp */
+          for (n = 0; n < 4; n++) ocr[n] = spi_io(0xff);		/* Get trailing return value of R7 resp */
           if (ocr[2] == 0x01 && ocr[3] == 0xAA) {				/* The card can work at vdd range of 2.7-3.6V */
               while (Timer1 && send_cmd(ACMD41, 1UL << 30));	/* Wait for leaving idle state (ACMD41 with HCS bit) */
               if (Timer1 && send_cmd(CMD58, 0) == 0) {		/* Check CCS bit in the OCR */
-                  for (n = 0; n < 4; n++) ocr[n] = rcvr_spi();
+                  for (n = 0; n < 4; n++) ocr[n] = spi_io(0xff);
                   ty = (ocr[0] & 0x40) ? CT_SD2 | CT_BLOCK : CT_SD2;
               }
           }
@@ -730,9 +546,9 @@ DRESULT disk_ioctl (
       case GET_BLOCK_SIZE :	/* Get erase block size in unit of sector (DWORD) */
         if (CardType & CT_SD2) {			/* SDC ver 2.00 */
             if (send_cmd(ACMD13, 0) == 0) {		/* Read SD status */
-                rcvr_spi();
+                spi_io(0xff);
                 if (rcvr_datablock(csd, 16)) {				/* Read partial block */
-                    for (n = 64 - 16; n; n--) rcvr_spi();	/* Purge trailing data */
+                    for (n = 64 - 16; n; n--) spi_io(0xff);	/* Purge trailing data */
                     *(DWORD*)buff = 16UL << (csd[10] >> 4);
                     res = RES_OK;
                 }
@@ -768,14 +584,14 @@ DRESULT disk_ioctl (
 
       case MMC_GET_OCR :		/* Receive OCR as an R3 resp (4 bytes) */
         if (send_cmd(CMD58, 0) == 0) {	/* READ_OCR */
-            for (n = 4; n; n--) *ptr++ = rcvr_spi();
+            for (n = 4; n; n--) *ptr++ = spi_io(0xff);
             res = RES_OK;
         }
         break;
 
       case MMC_GET_SDSTAT :	/* Receive SD status as a data block (64 bytes) */
         if (send_cmd(ACMD13, 0) == 0) {	/* SD_STATUS */
-            rcvr_spi();
+            spi_io(0xff);
             if (rcvr_datablock(ptr, 64))
               res = RES_OK;
         }
@@ -800,34 +616,9 @@ DRESULT disk_ioctl (
 
 void disk_timerproc (void)
 {
-  static BYTE pv;
-  BYTE n, s;
-
-
+  BYTE n;
   n = Timer1;						/* 100Hz decrement timer */
   if (n) Timer1 = --n;
   n = Timer2;
   if (n) Timer2 = --n;
-
-  n = pv;
-  pv = get_SOCKWP() | get_SOCKINS();
-  // pv = ( ( PIOA->PIO_PDSR & SD_SOCKET_WP_PIN ) ? SOCKWP /*protected*/ : 0 /* unprotected */ )
-  //	| ( ( PIOA->PIO_PDSR & SD_SOCKET_INS_PIN ) ?  SOCKINS /*no card*/ : 0 /* card inserted */ );
-
-  if (n == pv) {					/* Have contacts stabled? */
-      s = Stat;
-
-      if (pv & SOCKWP)			/* WP is H (write protected) */
-        s |= STA_PROTECT;
-      else						/* WP is L (write enabled) */
-        s &= ~STA_PROTECT;
-
-      if (pv & SOCKINS)			/* INS = H (Socket empty) */
-        s |= (STA_NODISK | STA_NOINIT);
-      else						/* INS = L (Card inserted) */
-        s &= ~STA_NODISK;
-
-      Stat = s;
-  }
 }
-

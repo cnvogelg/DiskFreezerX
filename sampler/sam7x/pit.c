@@ -1,9 +1,17 @@
 #include "pit.h"
 
+void pit_set_max(u32 max)
+{
+  if(max == 0) {
+      max = AT91C_PITC_PIV;
+  }
+  u32 old = *AT91C_PITC_PIMR & ~ AT91C_PITC_PIV;
+  *AT91C_PITC_PIMR = old | (max & AT91C_PITC_PIV);
+}
+
 void pit_enable(void)
 {
-  // max PIV count
-  *AT91C_PITC_PIMR = 0xfffff | AT91C_PITC_PITEN;
+  *AT91C_PITC_PIMR |= AT91C_PITC_PITEN;
 }
 
 void pit_disable(void)
@@ -61,6 +69,13 @@ void pit_irq_start(pit_func func_10ms, pit_func func_500ms)
   pit_func_10ms = func_10ms;
   pit_func_500ms = func_500ms;
 
+  pit_disable();
+
+  // read status
+  AT91F_PITGetStatus(AT91C_BASE_PITC);
+
+  pit_reset();
+
   AT91F_PITInit(AT91C_BASE_PITC, PIT_PERIOD, MCK / 1000000);
 
   // setup irq
@@ -70,6 +85,8 @@ void pit_irq_start(pit_func func_10ms, pit_func func_500ms)
   AT91F_AIC_EnableIt (AT91C_BASE_AIC, AT91C_ID_SYS);
   AT91F_PITEnableInt(AT91C_BASE_PITC);
 
+  pit_enable();
+
   timestamp = 0;
 }
 
@@ -77,5 +94,6 @@ void pit_irq_stop(void)
 {
   AT91F_AIC_DisableIt (AT91C_BASE_AIC, AT91C_ID_SYS);
   AT91F_PITDisableInt(AT91C_BASE_PITC);
+
   pit_disable();
 }

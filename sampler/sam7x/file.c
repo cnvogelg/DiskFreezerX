@@ -2,8 +2,17 @@
 #include "uartutil.h"
 #include "ff.h"
 #include "diskio.h"
+#include "pit.h"
+#include "led.h"
 
 static FATFS fatfs;
+
+static void led_proc(void)
+{
+  static u32 on = 0;
+  led_yellow(on);
+  on = 1-on;
+}
 
 void file_test(void)
 {
@@ -14,12 +23,20 @@ void file_test(void)
   uart_send_string((u08 *)"file test");
   uart_send_crlf();
 
+  pit_irq_start(disk_timerproc, led_proc);
+
+  uart_send_string((u08 *)"pit");
+  uart_send_crlf();
+
   if(disk_initialize(0) & STA_NOINIT)
   {
       uart_send_string((u08 *)"disk_initialize failed!");
       uart_send_crlf();
       return ;
   }
+
+  uart_send_string((u08 *)"init");
+  uart_send_crlf();
 
   if(f_mount(0, &fatfs) != FR_OK)
   {
@@ -44,6 +61,9 @@ void file_test(void)
   f_mount(0, 0);
   disk_ioctl(0, CTRL_POWER, 0); //power off
 
+  pit_irq_stop();
 
+  uart_send_string((u08 *)"done");
+  uart_send_crlf();
 }
 

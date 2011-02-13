@@ -81,6 +81,7 @@ u32 trk_read_count_index(void)
 
     idx_counter = 0;
 
+    pit_set_max(0);
     pit_enable();
     pit_reset();
 
@@ -127,6 +128,7 @@ u32 trk_read_count_data(void)
 
     idx_counter = 0;
 
+    pit_set_max(0);
     pit_enable();
     pit_reset();
 
@@ -196,6 +198,7 @@ static int do_read_data_spectrum(void)
 
     idx_counter = 0;
 
+    pit_set_max(0);
     pit_enable();
     pit_reset();
 
@@ -359,6 +362,8 @@ void trk_read_to_spiram(void)
     timer2_init();
 
     idx_counter = 0;
+
+    pit_set_max(0);
     pit_enable();
     pit_reset();
 
