@@ -81,6 +81,7 @@ u32  spiram_dma_index;
 u32  spiram_dma_chip_no;
 
 u32  spiram_total;
+u32  spiram_checksum;
 
 int spiram_multi_init(void)
 {
@@ -161,6 +162,7 @@ void spiram_multi_write_begin(void)
   spiram_dma_chip_no = 0;
 
   spiram_total = 0;
+  spiram_checksum = 0;
 
   // pre-select chip 0
   spi_low_set_multi(0);

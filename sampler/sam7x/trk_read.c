@@ -29,6 +29,8 @@ void reset_status(void)
   read_status.cell_overflows = 0;
   read_status.data_size = 0;
   read_status.data_overruns = 0;
+  read_status.data_checksum = 0;
+  read_status.full_chips = 0;
 
   got_index = 0;
 }
@@ -345,6 +347,50 @@ static void read_index_func(void)
   idx_flag = pit_peek();
 }
 
+void trk_read_sim(void)
+{
+    reset_status();
+
+    uart_send_string((u08 *)"read track sim");
+    uart_send_crlf();
+
+    // begin bulk transfer
+    spi_low_mst_init();
+    spiram_multi_init();
+    spiram_multi_write_begin();
+
+    // core loop for reading a track
+    u08 ch = 0;
+    u32 num = SPIRAM_TOTAL_SIZE;
+    while(num > 0) {
+
+        spiram_multi_write_byte(ch++);
+        spiram_multi_write_handle();
+        delay_us(2);
+        num--;
+
+    }
+
+    spiram_multi_write_end();
+
+    uart_send_string((u08 *)"data counter:   ");
+    uart_send_hex_dword_crlf(spiram_total);
+    uart_send_string((u08 *)"data checksum:  ");
+    uart_send_hex_dword_crlf(spiram_checksum);
+    if(spiram_buffer_overflows > 0) {
+        uart_send_string((u08 *)"data overflows: ");
+        uart_send_hex_dword_crlf(spiram_buffer_overflows);
+    }
+
+    // update status
+    read_status.data_size = spiram_total;
+    read_status.data_overruns = spiram_buffer_overflows;
+    read_status.data_checksum = spiram_checksum;
+    read_status.full_chips = spiram_chip_no;
+
+    trk_check_spiram();
+}
+
 void trk_read_to_spiram(void)
 {
     u32 cell_overflows = 0;
@@ -387,6 +433,7 @@ void trk_read_to_spiram(void)
     u32 delta = timer2_get_capture_a();
 
     // core loop for reading a track
+    u08 ch = 0;
     while(index_counter > 0) {
 
         // cell sample timer
@@ -401,8 +448,8 @@ void trk_read_to_spiram(void)
                 cell_overflow_values[cell_overflows] = delta;
                 cell_overflows++;
             } else {
-                u08 d = (u08)(delta & 0xff);
-                spiram_multi_write_byte(d);
+                //u08 d = (u08)(delta & 0xff);
+                spiram_multi_write_byte(ch++);
             }
 
             // index marker was found
@@ -429,6 +476,8 @@ void trk_read_to_spiram(void)
 
     uart_send_string((u08 *)"data counter:   ");
     uart_send_hex_dword_crlf(spiram_total);
+    uart_send_string((u08 *)"data checksum:  ");
+    uart_send_hex_dword_crlf(spiram_checksum);
     if(spiram_buffer_overflows > 0) {
         uart_send_string((u08 *)"data overflows: ");
         uart_send_hex_dword_crlf(spiram_buffer_overflows);
@@ -451,6 +500,8 @@ void trk_read_to_spiram(void)
     read_status.cell_overflows = cell_overflows;
     read_status.data_size = spiram_total;
     read_status.data_overruns = spiram_buffer_overflows;
+    read_status.data_checksum = spiram_checksum;
+    read_status.full_chips = spiram_chip_no;
     got_index = idx_counter;
 
     // copy index pos
@@ -464,5 +515,66 @@ void trk_read_to_spiram(void)
         uart_send_string((u08 *)"index pos:  ");
         uart_send_hex_dword_crlf(index_pos[i]);
     }
+
+    trk_check_spiram();
 }
+
+u32 trk_check_spiram(void)
+{
+   spiram_multi_init();
+   u32 size = read_status.data_size + (read_status.full_chips * 3);
+   u32 chip_no = 0;
+   u32 bank = 0;
+   u32 addr = 0;
+   u32 my_checksum = 0;
+
+   spi_low_set_multi(chip_no);
+   while(size > 0) {
+       u08 *data = &spiram_buffer[0][0];
+       u32  delta = (size < SPIRAM_BUFFER_SIZE) ? size : SPIRAM_BUFFER_SIZE;
+
+       spiram_read_begin(addr);
+       spi_read_dma(data,SPIRAM_BUFFER_SIZE);
+       spiram_end();
+
+       // correct check size in last bank of each chip
+       // to skip the 3 bytes DMA optimization
+       u32 check_size = delta;
+       if((bank == (SPIRAM_NUM_BANKS-1)) && (delta == SPIRAM_BUFFER_SIZE)) {
+           check_size = delta - 3;
+       }
+
+       for(int i=0;i<check_size;i++) {
+           my_checksum += data[i];
+       }
+
+       bank++;
+       addr+=SPIRAM_BUFFER_SIZE;
+       if(bank == SPIRAM_NUM_BANKS) {
+           chip_no ++;
+           bank = 0;
+           addr = 0;
+           spi_low_set_multi(chip_no);
+       }
+       size -= delta;
+   }
+
+   u32 checksum = read_status.data_checksum;
+   uart_send_string((u08 *)"read checksum:  ");
+   uart_send_hex_dword_crlf(checksum);
+   uart_send_string((u08 *)"calc checksum:  ");
+   uart_send_hex_dword_crlf(my_checksum);
+
+   u32 diff;
+   if(my_checksum > checksum) {
+       diff = my_checksum - checksum;
+   } else {
+       diff = checksum - my_checksum;
+   }
+   uart_send_string((u08 *)"delta:          ");
+   uart_send_hex_dword_crlf(diff);
+
+   return (my_checksum != checksum);
+}
+
 

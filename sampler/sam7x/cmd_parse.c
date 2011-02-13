@@ -297,6 +297,12 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
                 cmd_floppy_disable();
                 set_result(0);
            }
+           break;
+        case 'Y':
+          {
+            trk_read_sim();
+          }
+          break;
         }
     }   
     
