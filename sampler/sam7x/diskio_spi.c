@@ -116,12 +116,9 @@ BYTE CardType;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
 /*-----------------------------------------------------------------------*/
 static void init_spi( void )
 {
-  spi_low_mst_init();
   spi_low_dma_init();
+  spi_low_init_channel(1,0xfe,0,1); // slow speed at init
   spi_low_set_channel(1);
-
-  // slow during init
-  spi_low_set_speed(1,0xFE);
 
   // enable SPI
   spi_low_enable();

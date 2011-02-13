@@ -23,6 +23,7 @@
 extern void spi_low_cs_init(void);
 extern void spi_low_slv_init(void);
 extern void spi_low_mst_init(void);
+extern void spi_low_init_channel(int ch, int scbr, int ncpha, int cpol);
 extern void spi_low_set_speed(int ch, int scbr);
 extern void spi_low_set_channel(int ch);
 

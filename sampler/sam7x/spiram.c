@@ -8,8 +8,7 @@
 
 void spiram_init(void)
 {
-  spi_low_mst_init();
-  spi_low_set_speed(0,8); // 48/8=6 MHz -> Clock for SPI RAM
+  spi_low_init_channel(0,8,1,0); // NCPHA, 48/8=6 MHz -> Clock for SPI RAM
 
   spi_low_dma_init();
   spi_low_set_channel(0);

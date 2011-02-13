@@ -370,6 +370,7 @@ void trk_read_to_spiram(void)
     floppy_enable_index_intr(read_index_func);
 
     // begin bulk transfer
+    spi_low_mst_init();
     spiram_multi_init();
     spiram_multi_write_begin();
 

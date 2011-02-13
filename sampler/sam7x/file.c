@@ -36,11 +36,16 @@ void file_save(u32 offset, u32 size)
   uart_send_string((u08 *)"file save");
   uart_send_crlf();
 
+  // perform SPI reset to be sage
+  spi_low_mst_init();
+
+  // setup SPIRAM
   if(spiram_multi_init()) {
       uart_send_string((u08 *)"spiram init failed");
       uart_send_crlf();
   }
 
+  // enable tick irq
   pit_irq_start(disk_timerproc, led_proc);
 
   uart_send_string((u08 *)"pit");
@@ -75,14 +80,12 @@ void file_save(u32 offset, u32 size)
       // work buffer for data transfer is shared with spiram's buffers
       u08 *data = &spiram_buffer[0][0];
 
-#if 0
       // read from spi ram
       spi_low_set_channel(0);
       spi_low_set_multi(0);
       spiram_read_begin(0);
       spi_read_dma(data, SPIRAM_BUFFER_SIZE);
       spiram_end();
-#endif
 
       // dump data
       u08 *buf = data;
