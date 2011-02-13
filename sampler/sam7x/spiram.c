@@ -70,7 +70,7 @@ u32  spiram_buffer_index;
 u32  spiram_buffer_usage;
 u08 *spiram_buffer_ptr;
 
-u32  spiram_buffer_overflows;
+u32  spiram_buffer_overruns;
 
 u32  spiram_chip_no;
 u32  spiram_bank_no;
@@ -79,6 +79,7 @@ u32  spiram_buffer_on_chip[SPIRAM_NUM_BUFFER];
 u32  spiram_num_ready;
 u32  spiram_dma_index;
 u32  spiram_dma_chip_no;
+u32  spiram_dma_busy;
 
 u32  spiram_total;
 u32  spiram_checksum;
@@ -146,10 +147,10 @@ void spiram_multi_write_begin(void)
   // setup write buffer state
   spiram_buffer_index = 0;
   spiram_buffer_usage = 3;
-  spiram_buffer_ptr   = &spiram_buffer[0][0] + 3;
+  spiram_buffer_ptr   = spiram_buffer[0];
 
   // reset error state
-  spiram_buffer_overflows = 0;
+  spiram_buffer_overruns = 0;
 
   // init bank/chip checking
   spiram_chip_no = 0;
@@ -160,6 +161,7 @@ void spiram_multi_write_begin(void)
   spiram_num_ready = 0;
   spiram_dma_index = 0;
   spiram_dma_chip_no = 0;
+  spiram_dma_busy = 0;
 
   spiram_total = 0;
   spiram_checksum = 0;
@@ -177,12 +179,12 @@ int spiram_multi_write_next_buffer(void)
 
   // oops! -> DMA is using this buffer :( overflow!
   if(next_index == spiram_dma_index) {
-      spiram_buffer_overflows ++;
+      spiram_buffer_overruns ++;
       return 0;
   } else {
       spiram_buffer_usage = 0;
       spiram_buffer_index = next_index;
-      spiram_buffer_ptr   = &spiram_buffer[spiram_buffer_index][0];
+      spiram_buffer_ptr   = spiram_buffer[spiram_buffer_index];
 
       // determine chip
       spiram_bank_no ++;
@@ -191,10 +193,10 @@ int spiram_multi_write_next_buffer(void)
           spiram_bank_no = 0;
 
           // write initial WRITE command for new chip
-          *(spiram_buffer_ptr++) = SPIRAM_CMD_WRITE;
-          *(spiram_buffer_ptr++) = 0;
-          *(spiram_buffer_ptr++) = 0;
-          spiram_buffer_usage    = 3;
+          spiram_buffer_ptr[0] = SPIRAM_CMD_WRITE;
+          spiram_buffer_ptr[1] = 0;
+          spiram_buffer_ptr[2] = 0;
+          spiram_buffer_usage  = 3;
       }
 
       // store for each buffer the chip
@@ -208,6 +210,11 @@ int spiram_multi_write_next_buffer(void)
 
 void spiram_multi_write_end(void)
 {
+  // make last buffer ready
+  if(spiram_buffer_usage > 0) {
+      spiram_num_ready++;
+  }
+
   // make sure all buffers are transmitted
   while(spiram_num_ready > 0) {
       spiram_multi_write_handle();
@@ -354,25 +361,32 @@ u32 spiram_dma_test(u08 begin,u16 size)
 
 u32 spiram_dump(u08 chip_no,u08 bank)
 {
-  if(chip_no >= SPIRAM_NUM_CHIPS) {
-      return 1;
+  u32 buf_no = 0;
+  if(chip_no < SPIRAM_NUM_CHIPS) {
+      spiram_init();
+      spi_low_set_multi(chip_no);
+  } else {
+      buf_no = ( chip_no - SPIRAM_NUM_CHIPS) % SPIRAM_NUM_BUFFER;
   }
 
-  spiram_init();
-  spi_low_set_multi(chip_no);
+  u08 *buf = spiram_buffer[buf_no];
+  u32 addr;
 
-  u32 addr = bank * SPIRAM_BUFFER_SIZE;
-
-  // read bytes from ram
-  u08 *buf = spiram_buffer[0];
-  spiram_read_begin(addr);
-  for(int i=0;i<SPIRAM_BUFFER_SIZE;i++) {
-     buf[i] = spiram_read_byte();
+  if(chip_no < SPIRAM_NUM_CHIPS) {
+      // read bytes from ram
+      addr = bank * SPIRAM_BUFFER_SIZE;
+      spiram_read_begin(addr);
+      for(int i=0;i<SPIRAM_BUFFER_SIZE;i++) {
+          buf[i] = spiram_read_byte();
+      }
+      spiram_end();
+      addr += chip_no * SPIRAM_CHIP_SIZE;
+  } else {
+      // read from internal buffer
+      addr = 0xf0000000 | (buf_no << 24);
   }
-  spiram_end();
 
   // dump to serial
-  addr += chip_no * SPIRAM_CHIP_SIZE;
   const u32 line_size = 16;
   u32 lines = SPIRAM_BUFFER_SIZE / line_size;
   for(u32 i=0;i<lines;i++) {

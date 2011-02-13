@@ -361,7 +361,7 @@ void trk_read_sim(void)
 
     // core loop for reading a track
     u08 ch = 0;
-    u32 num = SPIRAM_TOTAL_SIZE;
+    u32 num = SPIRAM_TOTAL_SIZE - (SPIRAM_NUM_CHIPS * 3);
     while(num > 0) {
 
         spiram_multi_write_byte(ch++);
@@ -377,14 +377,14 @@ void trk_read_sim(void)
     uart_send_hex_dword_crlf(spiram_total);
     uart_send_string((u08 *)"data checksum:  ");
     uart_send_hex_dword_crlf(spiram_checksum);
-    if(spiram_buffer_overflows > 0) {
-        uart_send_string((u08 *)"data overflows: ");
-        uart_send_hex_dword_crlf(spiram_buffer_overflows);
+    if(spiram_buffer_overruns > 0) {
+        uart_send_string((u08 *)"data overruns:  ");
+        uart_send_hex_dword_crlf(spiram_buffer_overruns);
     }
 
     // update status
     read_status.data_size = spiram_total;
-    read_status.data_overruns = spiram_buffer_overflows;
+    read_status.data_overruns = spiram_buffer_overruns;
     read_status.data_checksum = spiram_checksum;
     read_status.full_chips = spiram_chip_no;
 
@@ -478,9 +478,9 @@ void trk_read_to_spiram(void)
     uart_send_hex_dword_crlf(spiram_total);
     uart_send_string((u08 *)"data checksum:  ");
     uart_send_hex_dword_crlf(spiram_checksum);
-    if(spiram_buffer_overflows > 0) {
-        uart_send_string((u08 *)"data overflows: ");
-        uart_send_hex_dword_crlf(spiram_buffer_overflows);
+    if(spiram_buffer_overruns > 0) {
+        uart_send_string((u08 *)"data overruns:  ");
+        uart_send_hex_dword_crlf(spiram_buffer_overruns);
     }
     if(cell_overflows > 0) {
         uart_send_string((u08 *)"cell overflows: ");
@@ -499,7 +499,7 @@ void trk_read_to_spiram(void)
     read_status.cell_overruns  = cell_overruns;
     read_status.cell_overflows = cell_overflows;
     read_status.data_size = spiram_total;
-    read_status.data_overruns = spiram_buffer_overflows;
+    read_status.data_overruns = spiram_buffer_overruns;
     read_status.data_checksum = spiram_checksum;
     read_status.full_chips = spiram_chip_no;
     got_index = idx_counter;

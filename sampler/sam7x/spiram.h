@@ -82,12 +82,13 @@ extern u32 spiram_buffer_on_chip[SPIRAM_NUM_BUFFER];
 extern u32 spiram_buffer_index;
 extern u32 spiram_buffer_usage;
 extern u08 *spiram_buffer_ptr;
-extern u32 spiram_buffer_overflows;
+extern u32 spiram_buffer_overruns;
 extern u32 spiram_chip_no;
 extern u32 spiram_bank_no;
 extern u32 spiram_num_ready;
 extern u32 spiram_dma_index;
 extern u32 spiram_dma_chip_no;
+extern u32 spiram_dma_busy;
 extern u32 spiram_total;
 extern u32 spiram_checksum;
 
@@ -95,31 +96,43 @@ extern u32 spiram_checksum;
 __inline void
 spiram_multi_write_handle(void)
 {
-  // dma is empty -> fill it
-  if ((spiram_num_ready > 0) && spi_low_rx_dma_empty())
-    {
+  if(spi_low_rx_dma_empty()) {
 
-      // get next dma buffer
-      u08 *ptr = spiram_buffer[spiram_dma_index];
-      u32 chip_no = spiram_buffer_on_chip[spiram_dma_index];
+      // disable a running DMA
+      if(spiram_dma_busy) {
+          spi_low_dma_disable();
+          spiram_dma_busy = 0;
+      }
 
-      // advance to new write buffer
-      spiram_dma_index = (spiram_dma_index + 1) & (SPIRAM_NUM_BUFFER - 1);
-      spiram_num_ready--;
+      // something new to fill in?
+      if (spiram_num_ready > 0) {
 
-      // do we need to toggle chip?
-      if (spiram_dma_chip_no != chip_no)
-        {
-          // enable new chip
-          spiram_dma_chip_no = chip_no;
+          // get next dma buffer
+          u08 *ptr = spiram_buffer[spiram_dma_index];
+          u32 chip_no = spiram_buffer_on_chip[spiram_dma_index];
 
-          spi_low_set_multi(chip_no);
-        }
+          // advance to new write buffer
+          spiram_dma_index = (spiram_dma_index + 1) & (SPIRAM_NUM_BUFFER - 1);
+          spiram_num_ready--;
 
-      // start next DMA
-      spi_low_rx_dma_set_first(spi_dummy_buffer, SPIRAM_BUFFER_SIZE);
-      spi_low_tx_dma_set_first(ptr, SPIRAM_BUFFER_SIZE);
-    }
+          // do we need to toggle chip?
+          if (spiram_dma_chip_no != chip_no)
+            {
+              // enable new chip
+              spiram_dma_chip_no = chip_no;
+
+              spi_low_disable_multi();
+              spi_low_set_multi(chip_no);
+              spi_low_enable_multi();
+            }
+
+          // start next DMA
+          spi_low_rx_dma_set_first(spi_dummy_buffer, SPIRAM_BUFFER_SIZE);
+          spi_low_tx_dma_set_first(ptr, SPIRAM_BUFFER_SIZE);
+          spi_low_dma_enable();
+          spiram_dma_busy = 1;
+      }
+  }
 }
 
 /* write a byte to the current write buffer */
