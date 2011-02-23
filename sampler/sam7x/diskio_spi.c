@@ -76,15 +76,7 @@
 
 ---------------------------------------------------------------------------*/
 
-#define PPIO_BASE_SPI         AT91C_BASE_PIOA
-#define PSPI_BASE             AT91C_BASE_SPI
-#define SPI_SCBR_MIN          2 /* 1 failed with my cards */
-// Chip-Select-Register Number (Array Index of SPI_CSR[])
-// here: NPCS0
-#define SPI_CSR_NUM           1
-
-#define PMC_ID_CS             AT91C_ID_PIOA
-#define PPIO_BASE_CS          AT91C_BASE_PIOA
+#define SPI_SCBR_MIN    2
 
 #define SELECT()   spi_low_enable_cs0()
 #define DESELECT() spi_low_disable_cs0()

@@ -528,6 +528,7 @@ u32 trk_check_spiram(void)
    u32 my_checksum = 0;
 
    spi_low_set_multi(chip_no);
+   u32 total = 0;
    while(size > 0) {
        u08 *data = &spiram_buffer[0][0];
        u32  delta = (size < SPIRAM_BUFFER_SIZE) ? size : SPIRAM_BUFFER_SIZE;
@@ -539,13 +540,16 @@ u32 trk_check_spiram(void)
        // correct check size in last bank of each chip
        // to skip the 3 bytes DMA optimization
        u32 check_size = delta;
-       if((bank == (SPIRAM_NUM_BANKS-1)) && (delta == SPIRAM_BUFFER_SIZE)) {
-           check_size = delta - 3;
+       if((bank == (SPIRAM_NUM_BANKS-1)) && (delta > (SPIRAM_BUFFER_SIZE-3))) {
+           check_size = SPIRAM_BUFFER_SIZE - 3;
        }
 
+       u32 blk_check = 0;
        for(int i=0;i<check_size;i++) {
            my_checksum += data[i];
+           blk_check += data[i];
        }
+       total += check_size;
 
        bank++;
        addr+=SPIRAM_BUFFER_SIZE;
@@ -554,6 +558,9 @@ u32 trk_check_spiram(void)
            bank = 0;
            addr = 0;
            spi_low_set_multi(chip_no);
+
+           uart_send_string((u08 *)"blk ");
+           uart_send_hex_dword_crlf(blk_check);
        }
        size -= delta;
    }
@@ -563,6 +570,8 @@ u32 trk_check_spiram(void)
    uart_send_hex_dword_crlf(checksum);
    uart_send_string((u08 *)"calc checksum:  ");
    uart_send_hex_dword_crlf(my_checksum);
+   uart_send_string((u08 *)"total size:     ");
+   uart_send_hex_dword_crlf(total);
 
    u32 diff;
    if(my_checksum > checksum) {

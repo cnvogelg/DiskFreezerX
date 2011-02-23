@@ -307,6 +307,11 @@ u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
             trk_read_sim();
           }
           break;
+        case 'Z':
+          {
+            trk_check_spiram();
+          }
+          break;
         }
     }   
     

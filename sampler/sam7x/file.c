@@ -86,21 +86,32 @@ void file_save(u32 size)
       u32 addr = 0;
       u32 chip_no = 0;
       spi_low_set_multi(0);
+      u32 total = 0;
       while(size > 0) {
 
           // read block from SPIRAM
           spi_low_set_channel(0);
+          if(spiram_set_mode(SPIRAM_MODE_SEQ)!=SPIRAM_MODE_SEQ) {
+              uart_send_string((u08 *)"set mode error!");
+              uart_send_crlf();
+          }
           spiram_read_begin(addr);
-          spi_read_dma(data, SPIRAM_BUFFER_SIZE);
+          u32 blk_check = 0;
+          for(int i=0;i<SPIRAM_BUFFER_SIZE;i++) {
+              data[i] = spi_io(0xff);
+              blk_check += data[i];
+          }
+          //spi_read_dma(data, SPIRAM_BUFFER_SIZE);
           spiram_end();
 
           u32 blk_size = (size > SPIRAM_BUFFER_SIZE) ? SPIRAM_BUFFER_SIZE : size;
-          if((bank == (SPIRAM_NUM_BUFFER - 1)) && (blk_size == SPIRAM_BUFFER_SIZE)) {
-              blk_size -= 3;
+          if((bank == (SPIRAM_NUM_BANKS - 1)) && (blk_size > (SPIRAM_BUFFER_SIZE-3))) {
+              blk_size = SPIRAM_BUFFER_SIZE - 3;
           }
           for(int i=0;i<blk_size;i++) {
               checksum += data[i];
           }
+          total += blk_size;
 
           // write to SD
           UINT written;
@@ -113,17 +124,22 @@ void file_save(u32 size)
           size -= blk_size;
           bank ++;
           addr += SPIRAM_BUFFER_SIZE;
-          if(bank == SPIRAM_NUM_BUFFER) {
+          if(bank == SPIRAM_NUM_BANKS) {
               bank = 0;
               addr = 0;
               chip_no ++;
 
               spi_low_set_multi(chip_no);
+
+              uart_send_hex_dword_crlf(blk_check);
           }
       }
 
       f_close(&fh);
-  }
+
+      uart_send_string((u08 *)"total: ");
+      uart_send_hex_dword_crlf(total);
+}
 
   // unmount
   f_mount(0, 0);
