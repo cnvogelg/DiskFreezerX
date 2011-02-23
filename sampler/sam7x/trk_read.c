@@ -559,8 +559,10 @@ u32 trk_check_spiram(void)
            addr = 0;
            spi_low_set_multi(chip_no);
 
+#if 0
            uart_send_string((u08 *)"blk ");
            uart_send_hex_dword_crlf(blk_check);
+#endif
        }
        size -= delta;
    }

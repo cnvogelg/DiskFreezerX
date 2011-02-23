@@ -330,7 +330,6 @@ DSTATUS disk_initialize (
       while(Timer1);
       retries--;
   }
-  uart_send_hex_dword_crlf(Stat);
 
   if (Stat & STA_NODISK) return Stat;	/* No card in the socket */
 

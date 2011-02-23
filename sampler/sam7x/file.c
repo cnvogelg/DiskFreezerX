@@ -44,9 +44,6 @@ void file_save(u32 size)
   // enable tick irq
   pit_irq_start(disk_timerproc, led_proc);
 
-  uart_send_string((u08 *)"pit");
-  uart_send_crlf();
-
   if(disk_initialize(0) & STA_NOINIT)
     {
       uart_send_string((u08 *)"disk_initialize failed!");
@@ -54,18 +51,12 @@ void file_save(u32 size)
       return ;
     }
 
-  uart_send_string((u08 *)"mount");
-  uart_send_crlf();
-
   if(f_mount(0, &fatfs) != FR_OK)
     {
       uart_send_string((u08 *)"disk_initialize failed!");
       uart_send_crlf();
       return;
     }
-
-  uart_send_string((u08 *)"save");
-  uart_send_crlf();
 
   FIL fh;
   FRESULT result = f_open(&fh, "track.dat", FA_WRITE | FA_CREATE_ALWAYS);
@@ -96,13 +87,13 @@ void file_save(u32 size)
               uart_send_crlf();
           }
           spiram_read_begin(addr);
+          spi_read_dma(data, SPIRAM_BUFFER_SIZE);
+          spiram_end();
+
           u32 blk_check = 0;
           for(int i=0;i<SPIRAM_BUFFER_SIZE;i++) {
-              data[i] = spi_io(0xff);
               blk_check += data[i];
           }
-          //spi_read_dma(data, SPIRAM_BUFFER_SIZE);
-          spiram_end();
 
           u32 blk_size = (size > SPIRAM_BUFFER_SIZE) ? SPIRAM_BUFFER_SIZE : size;
           if((bank == (SPIRAM_NUM_BANKS - 1)) && (blk_size > (SPIRAM_BUFFER_SIZE-3))) {
@@ -131,24 +122,25 @@ void file_save(u32 size)
 
               spi_low_set_multi(chip_no);
 
+#if 0
               uart_send_hex_dword_crlf(blk_check);
+#endif
           }
       }
 
-      f_close(&fh);
-
-      uart_send_string((u08 *)"total: ");
+      uart_send_string((u08 *)"save checksum:  ");
+      uart_send_hex_dword_crlf(checksum);
+      uart_send_string((u08 *)"total size:     ");
       uart_send_hex_dword_crlf(total);
-}
+
+      f_close(&fh);
+  }
 
   // unmount
   f_mount(0, 0);
   disk_ioctl(0, CTRL_POWER, 0); //power off
 
   pit_irq_stop();
-
-  uart_send_string((u08 *)"done. checksum: ");
-  uart_send_hex_dword_crlf(checksum);
 }
 
 void file_dir(void)
@@ -157,13 +149,7 @@ void file_dir(void)
   FRESULT res;
   FILINFO finfo;
 
-  uart_send_string((u08 *)"file dir");
-  uart_send_crlf();
-
   pit_irq_start(disk_timerproc, led_proc);
-
-  uart_send_string((u08 *)"pit");
-  uart_send_crlf();
 
   if(disk_initialize(0) & STA_NOINIT)
     {
@@ -171,9 +157,6 @@ void file_dir(void)
       uart_send_crlf();
       return ;
     }
-
-  uart_send_string((u08 *)"init");
-  uart_send_crlf();
 
   if(f_mount(0, &fatfs) != FR_OK)
     {
