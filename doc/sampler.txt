@@ -1,0 +1,59 @@
+sampler.txt
+-----------
+
+Commands:
+
+  f - Floppy commands
+   
+   e     enable floppy drive
+   d     disable floppy drive
+   
+   o     motor on
+   f     motor off
+
+   ?     motor/enable status
+
+
+  t - Track control (floppy must be enabled!)
+
+   i     init track counter (seek zero)
+   z     seek to zero
+
+   c     check max track range
+   m <n> set max track range
+
+   ?     return current track
+
+   + <n> next track
+   - <n> prev track
+
+   n     next track/side
+   p     prev track/side
+
+   t     set top side
+   b     set bottom side
+   s     toggle side 
+
+  
+  m - Memory commands
+
+   i           init memory, clear and check it
+   c <n>       intensive memory check. n=0 non-dma, n=1 dma
+   d <n> <m>   dump memory chip <n> memory <m>
+   
+
+  i - IO commands
+
+   id          show directory
+   is          save memory to file
+   il          load memory from file
+
+  r - sampler commands (floppy mut be enabled!)
+
+   m     read track to memory
+   v     verify track data with memory  
+   f     fake read
+
+  
+
+

@@ -33,7 +33,7 @@
 #define TRACK_ZERO              _BV(TRACK_ZERO_PIN)
 #define INDEX                   _BV(INDEX_PIN)
 
-#define FLOPPY_OUT_MASK     (WRITE_DATA | WRITE_GATE | SIDE_SELECT | HEAD_STEP | DIR_SELECT | MOTOR_ENABLE | DRIVE_SELECT)
+#define floppy_low_OUT_MASK     (WRITE_DATA | WRITE_GATE | SIDE_SELECT | HEAD_STEP | DIR_SELECT | MOTOR_ENABLE | DRIVE_SELECT)
 #define FLOPP_IN_MASK       (READ_DATA | TRACK_ZERO | INDEX)
 
 #define SET_LO(x)       AT91F_PIO_ClearOutput( AT91C_BASE_PIOA, x )
@@ -43,19 +43,19 @@
 #define DELAY_MS(x)     delay_ms(x)
 #define DELAY_US(x)     delay_us(x)
 
-void floppy_init(void)
+void floppy_low_init(void)
 {
     // Enable PIO
     AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, _BV(AT91C_ID_PIOA) ) ;
 
     // Set outputs
-    AT91F_PIO_CfgOutput( AT91C_BASE_PIOA, FLOPPY_OUT_MASK );
-    AT91F_PIO_SetOutput( AT91C_BASE_PIOA, FLOPPY_OUT_MASK );
+    AT91F_PIO_CfgOutput( AT91C_BASE_PIOA, floppy_low_OUT_MASK );
+    AT91F_PIO_SetOutput( AT91C_BASE_PIOA, floppy_low_OUT_MASK );
 }
 
 #define INDEX_INTERRUPT_LEVEL    3   // 0=lowest  7=highest
 
-void floppy_enable_index_intr(func f)
+void floppy_low_enable_index_intr(func f)
 {
     // Configure -> ext IRQ1 is index
     AT91F_PIO_CfgPeriph(AT91C_BASE_PIOA, INDEX, READ_DATA);
@@ -69,41 +69,41 @@ void floppy_enable_index_intr(func f)
     //*AT91C_AIC_FFER = AT91C_ID_IRQ1;
 }
 
-void floppy_disable_index_intr(void)
+void floppy_low_disable_index_intr(void)
 {
     AT91F_AIC_DisableIt (AT91C_BASE_AIC, AT91C_ID_IRQ1); // AIC_IECR        
 }
 
-void floppy_select_on()
+void floppy_low_select_on()
 {
     SET_LO(DRIVE_SELECT);
     DELAY_MS(1); // 0.5 us Max
 }
 
-void floppy_select_off()
+void floppy_low_select_off()
 {
     SET_HI(DRIVE_SELECT);
     DELAY_MS(1);
 }
 
-void floppy_motor_on()
+void floppy_low_motor_on()
 {
     SET_LO(MOTOR_ENABLE);
     DELAY_MS(500);
 }
 
-void floppy_motor_off()
+void floppy_low_motor_off()
 {
     SET_HI(MOTOR_ENABLE);
     DELAY_MS(500);
 }
 
-u32 floppy_is_track_zero()
+u32 floppy_low_is_track_zero()
 {
     return !IS_HI(TRACK_ZERO);
 }
 
-void floppy_set_dir(u32 dir)
+void floppy_low_set_dir(u32 dir)
 {
     if(dir) {
         SET_HI(DIR_SELECT);
@@ -113,7 +113,7 @@ void floppy_set_dir(u32 dir)
     DELAY_MS(1);
 }
 
-void floppy_set_side(u32 side)
+void floppy_low_set_side(u32 side)
 {
     if(side) {
         SET_HI(SIDE_SELECT);
@@ -123,7 +123,7 @@ void floppy_set_side(u32 side)
     DELAY_US(100);
 }
 
-void floppy_step_track()
+void floppy_low_step_track()
 {
     SET_LO(HEAD_STEP);
     DELAY_US(1);
@@ -132,26 +132,29 @@ void floppy_step_track()
     DELAY_MS(4);
 }
 
-void floppy_step_n_tracks(u32 dir,u32 n)
+void floppy_low_step_n_tracks(u32 dir,u32 n)
 {
-    floppy_set_dir(dir);
+    floppy_low_set_dir(dir);
     for(u32 i=0;i<n;i++) {
-        floppy_step_track();
+        floppy_low_step_track();
     }
     
     DELAY_MS(14);
 }
 
-void floppy_seek_zero()
+u08 floppy_low_seek_zero()
 {
-    floppy_set_dir(DIR_OUTWARD);
-    for(u32 i=0;i<80;i++) {
-        if(floppy_is_track_zero()) {
+    floppy_low_set_dir(DIR_OUTWARD);
+    u08 cnt = 0;
+    for(u32 i=0;i<84;i++) {
+        if(floppy_low_is_track_zero()) {
             break;
         }
-        floppy_step_track();
+        floppy_low_step_track();
+        cnt++;
     }
     
     DELAY_MS(16);
+    return cnt;
 }
 

@@ -14,28 +14,28 @@
 typedef void (*func)(void);
 
 // ---- prototypes ----
-extern void floppy_init(void);
+extern void floppy_low_init(void);
 
-extern void floppy_enable_index_intr(func f);
-extern void floppy_disable_index_intr(void);
+extern void floppy_low_enable_index_intr(func f);
+extern void floppy_low_disable_index_intr(void);
 
 #define ACK_INDEX_IRQ AT91C_BASE_PIOA->PIO_ISR;
 
-extern void floppy_init_data(void);
+extern void floppy_low_init_data(void);
 
-extern void floppy_select_on(void);
-extern void floppy_select_off(void);
+extern void floppy_low_select_on(void);
+extern void floppy_low_select_off(void);
 
-extern void floppy_motor_on(void);
-extern void floppy_motor_off(void);
+extern void floppy_low_motor_on(void);
+extern void floppy_low_motor_off(void);
 
-extern u32  floppy_is_track_zero(void);
-extern void floppy_set_dir(u32 dir);
-extern void floppy_step_track(void);
-extern void floppy_step_n_tracks(u32 dir,u32 n);
-extern void floppy_seek_zero(void);
+extern u32  floppy_low_is_track_zero(void);
+extern void floppy_low_set_dir(u32 dir);
+extern void floppy_low_step_track(void);
+extern void floppy_low_step_n_tracks(u32 dir,u32 n);
+extern u08  floppy_low_seek_zero(void);
 
-extern void floppy_set_side(u32 dir);
+extern void floppy_low_set_side(u32 dir);
 
 #endif
 

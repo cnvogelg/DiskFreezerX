@@ -4,7 +4,6 @@
  */
 
 #include "spiram.h"
-#include "uartutil.h"
 
 void spiram_init(void)
 {
@@ -84,12 +83,12 @@ u32  spiram_dma_busy;
 u32  spiram_total;
 u32  spiram_checksum;
 
-int spiram_multi_init(void)
+u08 spiram_multi_init(void)
 {
   spiram_init();
 
   // set SEQ mode for all chips
-  int error_flag = 0;
+  u08 error_flag = 0;
   for(int i=0;i<SPIRAM_NUM_CHIPS;i++) {
       u08 mode = spiram_set_mode(SPIRAM_MODE_SEQ);
       if(mode != SPIRAM_MODE_SEQ) {
@@ -101,7 +100,7 @@ int spiram_multi_init(void)
 }
 
 // clear all chip rams
-int spiram_multi_clear(u08 value)
+u08 spiram_multi_clear(u08 value)
 {
   // clear buffer
   u08 *buf = spiram_buffer[0];
@@ -120,7 +119,7 @@ int spiram_multi_clear(u08 value)
   }
 
   // verify loop
-  int error_flag = 0;
+  u08 error_flag = 0;
   for(int i=0;i<SPIRAM_NUM_CHIPS;i++) {
       spi_low_set_multi(i);
       spiram_read_begin(0);
@@ -128,7 +127,7 @@ int spiram_multi_clear(u08 value)
           spi_read_dma(buf, SPIRAM_BUFFER_SIZE);
           for(int k=0;k<SPIRAM_BUFFER_SIZE;k++) {
               if(buf[k]!=value) {
-                  error_flag ++;
+                  error_flag |= (1<<i);
               }
           }
       }
@@ -225,175 +224,4 @@ void spiram_multi_write_end(void)
 
   spi_low_dma_disable();
   spi_low_disable_multi();
-}
-
-// ----- TESTS ----------------------------------------------------------------
-
-u32 spiram_test(u08 begin,u16 size)
-{
-  spiram_init();
-  spi_low_set_multi(begin);
-
-  // set sequential mode
-  u08 mode = spiram_set_mode(SPIRAM_MODE_SEQ);
-  if(mode != SPIRAM_MODE_SEQ) {
-      return mode;
-  }
-
-  uart_send_string((u08 *)"set mode ok");
-  uart_send_crlf();
-
-  u08 d;
-
-  /* write bytes */
-  u32 sum = 0;
-  spiram_write_begin(0);
-  d = begin;
-  for(u16 i=0;i<size;i++) {
-      spiram_write_byte(d);
-      sum += d;
-      d++;
-  }
-  spiram_end();
-
-  uart_send_string((u08 *)"write ok");
-  uart_send_crlf();
-  uart_send_hex_dword_crlf(sum);
-
-  /* read bytes */
-  u32 sum2 = 0;
-  spiram_read_begin(0);
-  for(u16 i=0;i<size;i++) {
-      d = spiram_read_byte();
-      sum2 += d;
-  }
-  spiram_end();
-
-  uart_send_string((u08 *)"read done");
-  uart_send_crlf();
-  uart_send_hex_dword_crlf(sum2);
-
-  spiram_close();
-  return (sum != sum2);
-}
-
-// ----- DMA TEST -----
-
-u32 spiram_dma_test(u08 begin,u16 size)
-{
-  spiram_init();
-  spi_low_set_multi(begin);
-
-  // set sequential mode
-  u08 mode = spiram_set_mode(SPIRAM_MODE_SEQ);
-  if(mode != SPIRAM_MODE_SEQ) {
-      return mode;
-  }
-
-  uart_send_string((u08 *)"set mode ok");
-  uart_send_crlf();
-
-  u16 page_size = SPIRAM_BUFFER_SIZE;
-  u16 pages  = size / page_size;
-  u16 remain = size % page_size;
-
-  pages = 1;
-  remain = 0;
-
-  u08 *data = &spiram_buffer[0][0];
-
-  // fill page
-  u08 d = begin;
-  for(int i=0;i<page_size;i++) {
-      data[i] = d++;
-  }
-
-  // write
-  spiram_write_begin(0);
-  for(int p=0;p<pages;p++) {
-      spi_write_dma(data,page_size);
-  }
-  if(remain > 0) {
-      spi_write_dma(data,remain);
-  }
-  spiram_end();
-
-  uart_send_string((u08 *)"write ok");
-  uart_send_crlf();
-
-  // read
-  u32 read_errors = 0;
-  spiram_read_begin(0);
-  for(int p=0;p<pages;p++) {
-      spi_read_dma(data,page_size);
-
-      // check
-      d = begin;
-      for(int i=0;i<page_size;i++) {
-          if(data[i] != d) {
-              read_errors ++;
-          }
-          d++;
-      }
-  }
-  if(remain > 0) {
-      spi_read_dma(data,remain);
-
-      // check
-      d = begin;
-      for(int i=0;i<remain;i++) {
-          if(data[i] != d) {
-              read_errors ++;
-          }
-          d++;
-      }
-  }
-  spiram_end();
-
-  uart_send_string((u08 *)"read done");
-  uart_send_crlf();
-
-  spiram_close();
-  return read_errors;
-}
-
-// ----- Read & Write Test -----
-
-u32 spiram_dump(u08 chip_no,u08 bank)
-{
-  u32 buf_no = 0;
-  if(chip_no < SPIRAM_NUM_CHIPS) {
-      spiram_init();
-      spi_low_set_multi(chip_no);
-  } else {
-      buf_no = ( chip_no - SPIRAM_NUM_CHIPS) % SPIRAM_NUM_BUFFER;
-  }
-
-  u08 *buf = spiram_buffer[buf_no];
-  u32 addr;
-
-  if(chip_no < SPIRAM_NUM_CHIPS) {
-      // read bytes from ram
-      addr = bank * SPIRAM_BUFFER_SIZE;
-      spiram_read_begin(addr);
-      for(int i=0;i<SPIRAM_BUFFER_SIZE;i++) {
-          buf[i] = spiram_read_byte();
-      }
-      spiram_end();
-      addr += chip_no * SPIRAM_CHIP_SIZE;
-  } else {
-      // read from internal buffer
-      addr = 0xf0000000 | (buf_no << 24);
-  }
-
-  // dump to serial
-  const u32 line_size = 16;
-  u32 lines = SPIRAM_BUFFER_SIZE / line_size;
-  for(u32 i=0;i<lines;i++) {
-      uart_send_hex_line_crlf(addr,buf,line_size);
-      addr += line_size;
-      buf += line_size;
-  }
-
-  return 0;
 }

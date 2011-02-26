@@ -87,7 +87,7 @@ u32 trk_read_count_index(void)
     pit_enable();
     pit_reset();
 
-    floppy_enable_index_intr(index_func);
+    floppy_low_enable_index_intr(index_func);
 
     // wait for index
     while(idx_counter<max_index) {
@@ -107,7 +107,7 @@ u32 trk_read_count_index(void)
         uart_send_crlf();
     }
 
-    floppy_disable_index_intr();
+    floppy_low_disable_index_intr();
 
     pit_disable();
 
@@ -134,7 +134,7 @@ u32 trk_read_count_data(void)
     pit_enable();
     pit_reset();
 
-    floppy_enable_index_intr(index_func);
+    floppy_low_enable_index_intr(index_func);
 
     // wait for an index
     while(idx_counter < 1) {
@@ -170,7 +170,7 @@ u32 trk_read_count_data(void)
 
     timer2_disable();
 
-    floppy_disable_index_intr();
+    floppy_low_disable_index_intr();
     pit_disable();
 
     if(cell_overruns > 0) {
@@ -204,7 +204,7 @@ static int do_read_data_spectrum(void)
     pit_enable();
     pit_reset();
 
-    floppy_enable_index_intr(index_func);
+    floppy_low_enable_index_intr(index_func);
 
     // wait for an index
     while(idx_counter < 1) {
@@ -245,7 +245,7 @@ static int do_read_data_spectrum(void)
     }
 
     timer2_disable();
-    floppy_disable_index_intr();
+    floppy_low_disable_index_intr();
 
     if(cell_overruns > 0) {
         uart_send_string((u08 *)"cell  overruns: ");
@@ -413,7 +413,7 @@ void trk_read_to_spiram(void)
     pit_enable();
     pit_reset();
 
-    floppy_enable_index_intr(read_index_func);
+    floppy_low_enable_index_intr(read_index_func);
 
     // begin bulk transfer
     spi_low_mst_init();
@@ -470,7 +470,7 @@ void trk_read_to_spiram(void)
     timer2_disable();
     spiram_multi_write_end();
 
-    floppy_disable_index_intr();
+    floppy_low_disable_index_intr();
     pit_disable();
 
     uart_send_string((u08 *)"data counter:   ");

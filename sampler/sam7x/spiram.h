@@ -53,24 +53,15 @@ spiram_read_byte(void)
   return spi_io(0xff);
 }
 
-// ----- test -----------------------------------------------------------------
-
-extern u32
-spiram_test(u08 begin, u16 size);
-extern u32
-spiram_dma_test(u08 begin, u16 size);
-extern u32
-spiram_dump(u08 chip_no, u08 bank);
-
 // ----- multi ram ------------------------------------------------------------
 
-extern int
+extern u08
 spiram_multi_init(void);
 extern void
 spiram_multi_write_begin(void);
 extern void
 spiram_multi_write_end(void);
-extern int
+extern u08
 spiram_multi_clear(u08 value);
 
 extern int

@@ -64,9 +64,9 @@ TARGET = dfx-sampler
 
 # List C source files here. (C dependencies are automatically generated.)
 # use file-extension c for "c-only"-files
-SRC += spi_low.c cmd.c cmd_parse.c trk_read.c pit.c spiram.c
+SRC += spi_low.c cmd_parse.c trk_read.c pit.c spiram.c
 SRC += led.c delay.c floppy-low.c uart.c uartutil.c util.c cmdline.c timer.c 
-SRC += ff.c diskio_spi.c file.c ccsbcs.c sdpin.c spi.c
+SRC += ff.c diskio_spi.c file.c ccsbcs.c sdpin.c spi.c track.c memory.c floppy.c
 SRC += $(TARGET).c
 
 # List C source files here which must be compiled in ARM-Mode.

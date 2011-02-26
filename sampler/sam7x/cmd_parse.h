@@ -9,7 +9,6 @@
 /* debug command get via uart */
 extern u08 cmd_uart_get_next(u08 **data);
 
-/* return 0 to quit */
-extern u08 cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf);
+extern void cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf);
 
 #endif
