@@ -11,6 +11,10 @@
 
 #include "cmd_parse.h"
 
+#include "memory.h"
+#include "floppy.h"
+#include "track.h"
+
 int main(void)
 {
     // board setup stuff
@@ -25,6 +29,12 @@ int main(void)
     // say hello
     uart_send_string((u08 *)"--- dfx-sampler sam7x/SPI ---");
     uart_send_crlf();
+
+    // do initial setup
+    memory_init();
+    floppy_select_on();
+    track_init();
+    floppy_select_off();
 
     while(1) {
         uart_send_string((u08 *)"> ");

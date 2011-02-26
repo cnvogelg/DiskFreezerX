@@ -8,6 +8,9 @@ static u08 side;
 static u08 max_track = MAX_TRACK;
 static u08 is_init = 0;
 
+// offset                   0123456789
+static u08 *name = (u08 *)"t_xx_y.trk";
+
 void track_init(void)
 {
   if(!is_init) {
@@ -31,21 +34,44 @@ u08 track_check_max(void)
   floppy_low_seek_zero();
   floppy_low_step_n_tracks(DIR_INWARD, 84);
   u08 max_steps = floppy_low_seek_zero();
+
   max_track = max_steps - 1;
-  return max_steps;
+  track = 0;
+
+  return max_track;
+}
+
+u08 track_get_max(void)
+{
+  return max_track;
 }
 
 void track_set_max(u08 max)
 {
-  if((max < 1)||(max > 85))
+  if(max > 85)
     return;
 
-  max_track = max - 1;
+  max_track = max;
 }
 
-u08 track_status(void)
+u08 track_num(void)
 {
   return (track) << 1 | side;
+}
+
+u08 *track_name(u08 num)
+{
+  u08 t = num >> 1;
+  u08 s = num & 1;
+
+  name[5] = s ? '1':'0';
+
+  int td = t / 10;
+  int tn = t % 10;
+  name[2] = td + '0';
+  name[3] = tn + '0';
+
+  return name;
 }
 
 void track_step_next(u08 n)
@@ -88,18 +114,24 @@ void track_side_top(void)
   floppy_low_set_side(SIDE_TOP);
 }
 
-void track_next(void)
+void track_next(u08 num)
 {
-  u08 s = track_side_toggle();
-  if(s == 0) {
-      track_step_next(1);
+  while(num > 0) {
+    u08 s = track_side_toggle();
+    if(s == 0) {
+        track_step_next(1);
+    }
+    num--;
   }
 }
 
-void track_prev(void)
+void track_prev(u08 num)
 {
-  u08 s = track_side_toggle();
-  if(s == 1) {
-      track_step_prev(1);
+  while(num > 0) {
+    u08 s = track_side_toggle();
+    if(s == 1) {
+        track_step_prev(1);
+    }
+    num--;
   }
 }

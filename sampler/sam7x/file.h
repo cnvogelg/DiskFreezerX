@@ -4,7 +4,7 @@
 #include "board.h"
 
 void file_dir(void);
-void file_save(u32 size);
+u08  file_save(u08 track, u32 size, u32 check,int verbose);
 
 #endif
 

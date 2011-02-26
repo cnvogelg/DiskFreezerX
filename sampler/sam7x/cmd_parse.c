@@ -8,6 +8,7 @@
 #include "floppy.h"
 #include "track.h"
 #include "memory.h"
+#include "disk.h"
 
 #define CMD_RES_OK              0
 #define CMD_RES_SYNTAX_ERROR    1
@@ -146,23 +147,35 @@ static void cmd_track(void)
       set_result(CMD_RES_OK);
       break;
     case '?':
-      set_result(track_status());
+      set_result(track_num());
       break;
     case '+':
       track_step_next(parse_hex_byte(1));
-      set_result(track_status());
+      set_result(track_num());
       break;
     case '-':
       track_step_prev(parse_hex_byte(1));
-      set_result(track_status());
+      set_result(track_num());
       break;
     case 'n':
-      track_next();
-      set_result(track_status());
+      track_next(parse_hex_byte(1));
+      set_result(track_num());
       break;
     case 'p':
-      track_prev();
-      set_result(track_status());
+      track_prev(parse_hex_byte(1));
+      set_result(track_num());
+      break;
+    case 's':
+      track_side_toggle();
+      set_result(track_num());
+      break;
+    case 't':
+      track_side_top();
+      set_result(track_num());
+      break;
+    case 'b':
+      track_side_bot();
+      set_result(track_num());
       break;
     default:
       set_result(CMD_RES_SYNTAX_ERROR);
@@ -210,7 +223,7 @@ static void cmd_memory(void)
 // io commands
 static void cmd_io(void)
 {
-  u08 cmd;
+  u08 cmd, res;
   u08 exit = 0;
   while((cmd = get_char()) != 0) {
      switch(cmd) {
@@ -221,8 +234,13 @@ static void cmd_io(void)
        {
          read_status_t *rs = trk_read_get_status();
          u32 size = rs->data_size;
+         u32 check = rs->data_checksum;
+         u08 t = rs->track_num;
          if(size > 0) {
-             file_save(size);
+             res = file_save(t,size,check,parse_hex_byte(1));
+             set_result(res);
+         } else {
+             set_result(0);
          }
        }
        break;
@@ -239,7 +257,7 @@ static void cmd_io(void)
 // sampler commands
 static void cmd_sampler(void)
 {
-  u08 cmd;
+  u08 cmd, res;
   u08 exit = 0;
   while((cmd = get_char()) != 0) {
      switch(cmd) {
@@ -248,13 +266,19 @@ static void cmd_sampler(void)
          u08 sel = floppy_select_on();
          u08 mot = floppy_motor_on();
          track_init();
-         trk_read_to_spiram();
+         res = trk_read_to_spiram(parse_hex_byte(1));
          if(mot) floppy_motor_off();
          if(sel) floppy_select_off();
+         set_result(res);
        }
        break;
+     case 'f':
+       res = trk_read_sim(parse_hex_byte(1));
+       set_result(res);
+       break;
      case 'v':
-       trk_check_spiram();
+       res = trk_check_spiram(parse_hex_byte(1));
+       set_result(res);
        break;
      default:
        set_result(CMD_RES_SYNTAX_ERROR);
@@ -274,6 +298,7 @@ void cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
   out = res_buf;
   out_size = 0;
 
+  u08 res;
   while(in_size > 0) {
       u08 cmd = get_char();
 
@@ -301,6 +326,13 @@ void cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
       // r) sampler commands
       case 'r':
         cmd_sampler();
+        break;
+
+      // ----- TASKS -----
+      // R) read disk
+      case 'R':
+        res = disk_read_all(parse_hex_byte(0),parse_hex_byte(160));
+        set_result(res);
         break;
       }
   }

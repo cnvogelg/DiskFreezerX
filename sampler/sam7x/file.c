@@ -6,6 +6,7 @@
 #include "led.h"
 #include "spiram.h"
 #include "uartutil.h"
+#include "track.h"
 
 static FATFS fatfs;
 
@@ -31,12 +32,17 @@ DWORD get_fattime(void)
                         (((DWORD)          0) >>  1);  // Sec
 }
 
-void file_save(u32 size)
+u08 file_save(u08 track, u32 size, u32 check, int verbose)
 {
   u32 checksum = 0;
 
-  uart_send_string((u08 *)"file save");
-  uart_send_crlf();
+  u08 *name = track_name(track);
+
+  if(verbose) {
+      uart_send_string((u08 *)"file save: ");
+      uart_send_string(name);
+      uart_send_crlf();
+  }
 
   // perform SPI reset to be sage
   spi_low_mst_init();
@@ -48,18 +54,18 @@ void file_save(u32 size)
     {
       uart_send_string((u08 *)"disk_initialize failed!");
       uart_send_crlf();
-      return ;
+      return 0x10;
     }
 
   if(f_mount(0, &fatfs) != FR_OK)
     {
-      uart_send_string((u08 *)"disk_initialize failed!");
+      uart_send_string((u08 *)"mound failed!");
       uart_send_crlf();
-      return;
+      return 0x11;
     }
 
   FIL fh;
-  FRESULT result = f_open(&fh, "track.dat", FA_WRITE | FA_CREATE_ALWAYS);
+  FRESULT result = f_open(&fh, (char *)name, FA_WRITE | FA_CREATE_ALWAYS);
   if(result != FR_OK) {
       uart_send_string((u08 *)"error opening file: ");
       uart_send_hex_dword_crlf(result);
@@ -128,10 +134,14 @@ void file_save(u32 size)
           }
       }
 
-      uart_send_string((u08 *)"save checksum:  ");
-      uart_send_hex_dword_crlf(checksum);
-      uart_send_string((u08 *)"total size:     ");
-      uart_send_hex_dword_crlf(total);
+      if(verbose) {
+        uart_send_string((u08 *)"read checksum:  ");
+        uart_send_hex_dword_crlf(check);
+        uart_send_string((u08 *)"save checksum:  ");
+        uart_send_hex_dword_crlf(checksum);
+        uart_send_string((u08 *)"total size:     ");
+        uart_send_hex_dword_crlf(total);
+      }
 
       f_close(&fh);
   }
@@ -141,6 +151,7 @@ void file_save(u32 size)
   disk_ioctl(0, CTRL_POWER, 0); //power off
 
   pit_irq_stop();
+  return (checksum != check);
 }
 
 void file_dir(void)
