@@ -1,15 +1,13 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import sys,os,getopt
+from PIL import Image, ImageDraw
 
 # ----- constants -----
 
-spi_bulk_eot    = 0xff
-spi_bulk_eof    = 0xfe
-spi_bulk_bof    = 0xfd
-marker_index    = 0xfc
-marker_overflow = 0xfb
-max_time_sample = 0xfa
+marker_index    = 0x01
+marker_overflow = 0x02
+marker_last     = 0x02
 
 # signals shorter this level are accounted to next sample
 noise_level = 24
@@ -66,22 +64,15 @@ def read_track_data(name):
     data=f.read()
     f.close();
     return data
-    
-def decode_raw_data(data):
-    result = ""
-    on = False
-    for d in data:
-        c = ord(d)
-        if c == spi_bulk_eot:
-            break
-        elif c == spi_bulk_eof:
-            on = False
-        elif c == spi_bulk_bof:
-            on = True
-        elif on:
-            result += d
-    return result
 
+def check_overflow(data):
+    cnt = 0;
+    for d in data:
+        t = ord(d)
+        if t == marker_overflow:
+            cnt += 1
+    return cnt
+        
 def extract_index(data):
     pos = 0
     index_pos=[]
@@ -102,25 +93,90 @@ def extract_index(data):
 
 # ----- transform time sample to bit cells -----
 
-def filter_noise(data):
+def filter_spikes(data):
     result = ""
     short_time = 0
     num_merged = 0
     for a in data:
         t = ord(a)
-        if t <= noise_level:
+        if t < marker_last:
+            # keep markers
+            result += chr(t)        
+        elif t <= noise_level:
+            # short spike -> remember for next sample
             short_time += t
             num_merged += 1
-        elif t == marker_index:
-            result += chr(t)
         else:
+            # normal sample
+            # was a spike? -> add it
             if short_time > 0:
                 t += short_time
                 short_time = 0
-            if t > max_time_sample:
-                t = max_time_sample
             result += chr(t)
     return (result, num_merged)
+
+def filter_pll(data):
+    # the initial sample period we assume
+    req_period = one_us * 2.0
+    period = req_period
+    # step for adjustment
+    step = period / 100.0
+    # window size: a quarter period
+    win_size = 2.0
+    # the inital window size
+    wt = one_us / win_size
+
+    # the initial accumulated delta
+    t = 0
+    
+    result = ""
+    sum_error = 0
+    count = 0
+    init = True
+    
+    for a in data:
+        v = ord(a)
+        if v <= marker_last:
+            result += a
+            continue
+    
+        t += v
+
+        # calc distance and num cells of current delta            
+        nc = divmod(t, period)
+        slots = int(nc[0])
+        dist = nc[1]
+        dist_frac = dist / wt
+        #print "t=",t,"period=",period,"wt=",wt,wt*3,"-> slots=",slots,"dist=",dist,"dist_frac=",dist_frac
+        
+        if dist > 0:
+            # not optimal sync
+            if dist <= wt:
+                # near optimal position
+                period += step
+                wt = period / win_size
+                out = req_period * slots
+                result += chr(out)
+                t = 0
+                #print "  near: period=",period,"wt=",wt,"->",out
+                sum_error += dist_frac
+            else:
+                # near next optimal position
+                period -= step
+                wt = period / win_size
+                out = req_period * (slots+1)
+                result += chr(out)
+                t = 0
+                #print "  far: period=",period,"wt=",wt,"->",out
+                sum_error += win_size - dist_frac
+        else:
+            out = req_period * slots
+            t = 0
+            #print "  ok: ",out
+            result += chr(out)
+        count += 1
+            
+    return (result, sum_error/count)
 
 def time_to_cellcode_num(t):
     if t < b0:
@@ -499,35 +555,107 @@ def print_short_block_tab(blk_tab, track, input_file):
     else:
         rating = "%d sectors missing" % (11-found)   
     print "%s:  Track %03d:  %s  %s" % (input_file, track, strip, rating)
+
+# ----- img stuff -----
+
+def save_image(img_file, data):
+    global verbose
     
+    if verbose:
+        print "generating sample dump image...";
+    
+    w = len(data)
+    img = Image.new("RGB",(w,255))
+    draw = ImageDraw.Draw(img)
+    
+    # grids:
+    # cell lines
+    grid_col = (0,224,0)
+    draw.line( (0, four_us, w-1, four_us), grid_col)
+    draw.line( (0, six_us, w-1, six_us), grid_col)
+    draw.line( (0, eight_us, w-1, eight_us), grid_col)
+    # border lines
+    grid_col = (32,64,0)
+    draw.line( (0, b0, w-1, b0), grid_col)
+    draw.line( (0, b1, w-1, b1), grid_col)
+    draw.line( (0, b2, w-1, b2), grid_col)
+    draw.line( (0, b3, w-1, b3), grid_col)
+
+    # show noise level for spike filtering
+    grid_col = (128,64,0)
+    draw.line( (0, noise_level, w-1, noise_level), grid_col)
+    
+    pos = 0
+    data_col = (255,255,255)
+    weak_col = (128,128,255)
+    for a in data:
+        t = ord(a)
+        
+        # index marker
+        if t == marker_index:
+            draw.line( (pos, 0, pos, 255), (255,0,255))
+        # overflow marker
+        elif t == marker_overflow:
+            draw.line( (pos, 0, pos, 255), (0,255,255))
+        # data sample
+        else:
+            code = time_to_cellcode_num(t)
+            if code == 0:
+                # weak short
+                draw.line((pos,0,pos,t), weak_col)
+            elif code == 1:
+                # weak long   
+                draw.line((pos,255,pos,t), weak_col)
+            elif code == 2:
+                draw.line((pos,four_us,pos,t), data_col)
+            elif code == 3:
+                draw.line((pos,six_us,pos,t), data_col)
+            elif code == 4:
+                draw.line((pos,eight_us,pos,t), data_col)
+        
+        pos += 1
+
+
+    del draw
+    
+    if verbose:
+        print "saving sample dump to",img_file
+    img.save(img_file)
+
 # ----- do work -----
 
 def analyze_file(input_file):
-    global do_filter, show_tstat, show_bstat, show_blocks, do_raw, verbose
+    global do_spike_filter, do_pll_filter, show_tstat, show_bstat, show_blocks, do_raw, verbose, do_img
     
     if verbose:
         print "reading track file",input_file
     data = read_track_data(input_file)
-    # decode a raw track
-    if do_raw:
-        data = decode_raw_data(data)
-        if verbose:
-            print "  got",hex(len(data)),"decoded track sample bytes"
-    else:
-        if verbose:
-            print "  got",hex(len(data)),"track sample bytes"
+    if verbose:
+        print "  got",hex(len(data)),"/",len(data),"track sample bytes"
 
-    # filter noise
-    if do_filter:
-        (data,num_merged) = filter_noise(data)
+    ovrflow = check_overflow(data)
+    if ovrflow > 0 and verbose:
+        print "  found",ovrflow,"overruns"
+        
+    # filter data
+    if do_spike_filter:
+        (data,num_merged) = filter_spikes(data)
         if verbose:
-            print "filtering noise: merged",num_merged,"tiny spikes"
+            print "filtering spikes: merged",num_merged,"samples"
+    if do_pll_filter:
+        (data,error) = filter_pll(data)
+        if verbose:
+            print "filtering with pll: error=",error
+
+    # img?
+    if do_img:
+        save_image(input_file + ".png",data)
 
     # extract index
     (data,index) = extract_index(data)
     if verbose:
-        print "index marks:    ",len(index)
-        print "  position:     ",index
+        print "index ranges:   ",len(index)
+        print "  pos/len:      ",index
 
     # stats
     if show_tstat:
@@ -614,9 +742,11 @@ def usage():
  --blocks        print the blocks
  --raw           decode a raw file
  
- --no-filter     disable short sample merge filer
+ --no-spike-filter     disable short sample merge filer
 
  -w              write data of blocks to <file>.blk
+ -f n            select filter
+ -i              save image <file>.png
 
  -v              be more verbose
  -h              show this help
@@ -625,14 +755,16 @@ def usage():
 
 show_tstat = False
 show_bstat = False
-do_filter = True
+do_spike_filter = True
+do_pll_filter = False
 show_blocks = False
 do_raw = False
 verbose = False
 write_blk = False
+do_img = False
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "hvw",["tstat","bstat","no-filter","blocks","raw"])
+    opts, args = getopt.getopt(sys.argv[1:], "hvwi",["tstat","bstat","no-spike-filter","pll-filter","blocks","raw"])
 except getopt.GetoptError, err:
     print str(err)
     usage()
@@ -649,12 +781,16 @@ for o, a in opts:
         show_tstat = True
     elif o == '--bstat':
         show_bstat = True
-    elif o == '--no-filter':
-        do_filter = False
+    elif o == '--no-spike-filter':
+        do_spike_filter = False
+    elif o == '--pll-filter':
+        do_pll_filter = True
     elif o == '--blocks':
         show_blocks = True
     elif o == '--raw':
         do_raw = True
+    elif o == '-i':
+        do_img = True
     
 # get file name arg
 if len(args) < 1:
