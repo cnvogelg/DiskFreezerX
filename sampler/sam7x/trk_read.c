@@ -8,9 +8,8 @@
 #include "pit.h"
 #include "track.h"
 
-// max number of index pos
-#define MAX_INDEX      16
-#define MAX_OVERFLOWS  32
+// max number of indexes per track
+#define MAX_INDEX      8
 
 // ----- read track state -----
 
@@ -28,6 +27,7 @@ void reset_status(void)
   read_status.index_overruns = 0;
   read_status.cell_overruns  = 0;
   read_status.cell_overflows = 0;
+  read_status.timer_overflows = 0;
   read_status.data_size = 0;
   read_status.data_overruns = 0;
   read_status.data_checksum = 0;
@@ -399,13 +399,29 @@ u08 trk_read_sim(int verbose)
   return trk_check_spiram(verbose);
 }
 
+__inline void spiram_multi_write_word(u16 word)
+{
+  spiram_multi_write_byte((u08)(word >> 8));
+  spiram_multi_write_byte((u08)(word & 0xff));
+}
+
+__inline void spiram_multi_write_dword(u32 dword)
+{
+  spiram_multi_write_byte((u08)(dword >> 24));
+  spiram_multi_write_byte((u08)((dword >> 16)&0xff));
+  spiram_multi_write_byte((u08)((dword >> 8)&0xff));
+  spiram_multi_write_byte((u08)(dword & 0xff));
+}
+
+// ---------- main track sampler ----------------------------------------------
+
 u08 trk_read_to_spiram(int verbose)
 {
   u32 cell_overflows = 0;
   u32 cell_overruns = 0;
+  u32 timer_overflows = 0;
   u32 index_counter = max_index;
   u32 my_index[MAX_INDEX];
-  u32 cell_overflow_values[MAX_OVERFLOWS];
 
   reset_status();
 
@@ -450,14 +466,17 @@ u08 trk_read_to_spiram(int verbose)
 
       // cell sample timer
       status = timer2_get_status();
+
+      // valid capture
       if(status & AT91C_TC_LDRAS) {
           // new cell delta
           delta = timer2_get_capture_a();
 
           // overflow?
-          if(delta >= LAST_VALUE) {
+          if(delta > LAST_VALUE) {
               spiram_multi_write_byte(MARKER_OVERFLOW);
-              cell_overflow_values[cell_overflows] = delta;
+              spiram_multi_write_byte((u08)((delta >> 8)&0xff));
+              spiram_multi_write_byte((u08)(delta & 0xff));
               cell_overflows++;
           } else {
               u08 d = (u08)(delta & 0xff);
@@ -471,12 +490,18 @@ u08 trk_read_to_spiram(int verbose)
               my_index[index_counter] = idx_flag;
               idx_flag = 0;
           }
-
           // handle SPI transfer
           spiram_multi_write_handle();
       }
+      // load overrun in capture register
       if(status & AT91C_TC_LOVRS) {
           cell_overruns++;
+          spiram_multi_write_byte(MARKER_OVERRUN);
+      }
+      // timer overflow
+      if(status & AT91C_TC_COVFS) {
+          timer_overflows++;
+          spiram_multi_write_byte(MARKER_TIMER_OVERFLOW);
       }
   }
 
@@ -498,20 +523,21 @@ u08 trk_read_to_spiram(int verbose)
       if(cell_overflows > 0) {
           uart_send_string((u08 *)"cell overflows: ");
           uart_send_hex_dword_crlf(cell_overflows);
-          for(int i=0;i<cell_overflows;i++) {
-              uart_send_string((u08 *)"cell counter:   ");
-              uart_send_hex_dword_crlf(cell_overflow_values[i]);
-          }
       }
       if(cell_overruns > 0) {
           uart_send_string((u08 *)"cell overruns:  ");
           uart_send_hex_dword_crlf(cell_overruns);
+      }
+      if(timer_overflows > 0) {
+          uart_send_string((u08 *)"timer overflow: ");
+          uart_send_hex_dword_crlf(timer_overflows);
       }
   }
 
   // update status
   read_status.cell_overruns  = cell_overruns;
   read_status.cell_overflows = cell_overflows;
+  read_status.timer_overflows = timer_overflows;
   read_status.data_size = spiram_total;
   read_status.data_overruns = spiram_buffer_overruns;
   read_status.data_checksum = spiram_checksum;
@@ -521,19 +547,25 @@ u08 trk_read_to_spiram(int verbose)
   // copy index pos
   for(int i=0;i<max_index;i++) {
       index_pos[i] = my_index[max_index-1-i];
+  }
 
-      if(verbose) {
-          if(i > 0) {
-              uart_send_string((u08 *)"    delta:  ");
-              uart_send_hex_dword_crlf(index_pos[i] - index_pos[i-1]);
-          }
-          uart_send_string((u08 *)"index pos:  ");
-          uart_send_hex_dword_crlf(index_pos[i]);
+  if(verbose) {
+      uart_send_string((u08 *)"    index pos:  ");
+      for(int i=0;i<max_index;i++) {
+          uart_send_hex_dword_space(index_pos[i]);
       }
+      uart_send_crlf();
+      uart_send_string((u08 *)"        delta:  ");
+      for(int i=1;i<max_index;i++) {
+          uart_send_hex_dword_space(index_pos[i] - index_pos[i-1]);
+      }
+      uart_send_crlf();
   }
 
   return trk_check_spiram(verbose);
 }
+
+// ----- check spiram contents vs. data checksum ------------------------------
 
 u08 trk_check_spiram(int verbose)
 {

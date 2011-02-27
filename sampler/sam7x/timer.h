@@ -49,6 +49,11 @@ __inline u32 timer2_get_capture_a( void )
   return AT91C_BASE_TC2->TC_RA;
 }
 
+__inline u32 timer2_get_value( void )
+{
+  return AT91C_BASE_TC2->TC_CV;
+}
+
 __inline void timer2_enable( void )
 {
     AT91C_BASE_TC2->TC_CCR = AT91C_TC_CLKEN;

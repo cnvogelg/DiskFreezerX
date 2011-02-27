@@ -177,6 +177,10 @@ static void cmd_track(void)
       track_side_bot();
       set_result(track_num());
       break;
+    case 'm':
+      track_set_max(parse_hex_byte(79));
+      set_result(track_get_max());
+      break;
     default:
       set_result(CMD_RES_SYNTAX_ERROR);
     case '.':

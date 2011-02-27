@@ -22,13 +22,19 @@ u08 disk_read_all(u08 begin, u08 end)
       uart_send_string((u08 *)": ");
 
       u08 st = trk_read_to_spiram(0);
-
+      uart_send_hex_byte_space(st);
       if(st != 0) {
-          uart_send_hex_byte_crlf(st);
+          uart_send_crlf();
           break;
       }
 
+      // give some sampling info
       read_status_t *rs = trk_read_get_status();
+      uart_send_hex_dword_space(rs->cell_overruns);
+      uart_send_hex_dword_space(rs->cell_overflows);
+      uart_send_hex_dword_space(rs->timer_overflows);
+      uart_send_hex_dword_space(rs->data_size);
+
       u32 size = rs->data_size;
       u32 check = rs->data_checksum;
       st = file_save(t,size,check,0);

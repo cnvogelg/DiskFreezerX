@@ -7,6 +7,7 @@ typedef struct {
   u32 index_overruns;
   u32 cell_overruns;
   u32 cell_overflows;
+  u32 timer_overflows;
   u32 data_size;
   u32 data_overruns;
   u32 data_checksum;
@@ -16,6 +17,8 @@ typedef struct {
 
 #define MARKER_INDEX            0x01
 #define MARKER_OVERFLOW         0x02
+#define MARKER_OVERRUN          0x03
+#define MARKER_TIMER_OVERFLOW   0x04
 #define LAST_VALUE              0xff
 
 u32  trk_read_count_index(void);

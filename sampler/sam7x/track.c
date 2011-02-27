@@ -49,7 +49,7 @@ u08 track_get_max(void)
 void track_set_max(u08 max)
 {
   if(max > 85)
-    return;
+    max = 85;
 
   max_track = max;
 }

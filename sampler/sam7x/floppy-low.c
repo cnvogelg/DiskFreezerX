@@ -33,8 +33,8 @@
 #define TRACK_ZERO              _BV(TRACK_ZERO_PIN)
 #define INDEX                   _BV(INDEX_PIN)
 
-#define floppy_low_OUT_MASK     (WRITE_DATA | WRITE_GATE | SIDE_SELECT | HEAD_STEP | DIR_SELECT | MOTOR_ENABLE | DRIVE_SELECT)
-#define FLOPP_IN_MASK       (READ_DATA | TRACK_ZERO | INDEX)
+#define FLOPPY_OUT_MASK     (WRITE_DATA | WRITE_GATE | SIDE_SELECT | HEAD_STEP | DIR_SELECT | MOTOR_ENABLE | DRIVE_SELECT)
+#define FLOPPY_IN_MASK       (READ_DATA | TRACK_ZERO | INDEX)
 
 #define SET_LO(x)       AT91F_PIO_ClearOutput( AT91C_BASE_PIOA, x )
 #define SET_HI(x)       AT91F_PIO_SetOutput( AT91C_BASE_PIOA, x )
@@ -49,8 +49,13 @@ void floppy_low_init(void)
     AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, _BV(AT91C_ID_PIOA) ) ;
 
     // Set outputs
-    AT91F_PIO_CfgOutput( AT91C_BASE_PIOA, floppy_low_OUT_MASK );
-    AT91F_PIO_SetOutput( AT91C_BASE_PIOA, floppy_low_OUT_MASK );
+    AT91F_PIO_CfgOutput( AT91C_BASE_PIOA, FLOPPY_OUT_MASK );
+    AT91F_PIO_SetOutput( AT91C_BASE_PIOA, FLOPPY_OUT_MASK );
+
+    // Input glitch filter for index
+    AT91F_PIO_InputFilterEnable( AT91C_BASE_PIOA, FLOPPY_IN_MASK ); // glitch filter
+    AT91F_PIO_OutputDisable( AT91C_BASE_PIOA, FLOPPY_IN_MASK ); // its an input
+    AT91F_PIO_Enable( AT91C_BASE_PIOA, FLOPPY_IN_MASK ); // enable
 }
 
 #define INDEX_INTERRUPT_LEVEL    3   // 0=lowest  7=highest

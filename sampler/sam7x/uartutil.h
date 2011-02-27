@@ -35,6 +35,8 @@ u08 uart_send_string(u08 *data);
 u08 uart_send_data(u08 *data,u08 size);
 // send a CR+LF
 u08 uart_send_crlf(void);
+// send a space
+u08 uart_send_space(void);
 
 // send a hex byte
 u08 uart_send_hex_byte_crlf(u08 data);
@@ -42,6 +44,13 @@ u08 uart_send_hex_byte_crlf(u08 data);
 u08 uart_send_hex_word_crlf(u16 data);
 // send a hex6 dword
 u08 uart_send_hex_dword_crlf(u32 data); 
+
+// send a hex byte
+u08 uart_send_hex_byte_space(u08 data);
+// send a hex word
+u08 uart_send_hex_word_space(u16 data);
+// send a hex6 dword
+u08 uart_send_hex_dword_space(u32 data);
 
 void uart_send_hex_line_crlf(u32 addr, const u08 *data, u32 len);
 
