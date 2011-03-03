@@ -7,7 +7,10 @@ from PIL import Image, ImageDraw
 
 marker_index    = 0x01
 marker_overflow = 0x02
-marker_last     = 0x02
+marker_overrun  = 0x03
+marker_timer_overflow = 0x04
+
+marker_last     = 0x04
 
 # signals shorter this level are accounted to next sample
 noise_level = 24
@@ -65,31 +68,127 @@ def read_track_data(name):
     f.close();
     return data
 
-def check_overflow(data):
-    cnt = 0;
-    for d in data:
-        t = ord(d)
-        if t == marker_overflow:
-            cnt += 1
-    return cnt
-        
-def extract_index(data):
+def extract_markers(data):
     pos = 0
     index_pos=[]
+    cell_overflow_pos=[]
+    cell_overrun_pos=[]
+    timer_overflow_pos=[]
     new_data = ""
-    for d in data:
-        val = ord(d)
+    opos = 0
+    total = len(data)
+    while opos < total:
+        t = data[opos]
+        val = ord(t)
+        opos += 1
+        # index marker
         if val == marker_index:
             index_pos.append(pos)
+        # overflow marker    
+        elif val == marker_overflow:
+            value = ord(data[opos])*256 + ord(data[opos+1])
+            opos += 2
+            cell_overflow_pos.append( (pos,value) )
+        # overrun marker
+        elif val == marker_overrun:
+            cell_overrun_pos.append(pos)
+        # timer overflow
+        elif val == marker_timer_overflow:
+            timer_overflow_pos.append(pos)
+        # normal data
         else:
             pos += 1
-            new_data += d
+            new_data += t 
             
     index=[]
     for i in xrange(len(index_pos)-1):
         index_len = index_pos[i+1]-index_pos[i]
         index.append( (index_pos[i],index_len) )
-    return (new_data,index)
+        
+    markers = {}
+    markers['index'] = index
+    markers['cell_overflows'] = cell_overflow_pos
+    markers['cell_overruns']  = cell_overrun_pos
+    markers['timer_overflows']= timer_overflow_pos
+    return (new_data,markers)
+
+def decode_num(data,off):
+    a = ord(data[off])
+    a = a * 256 + ord(data[off+1])
+    a = a * 256 + ord(data[off+2])
+    a = a * 256 + ord(data[off+3])
+    return a
+
+def decode_kryoflux_stream(data):
+    global verbose
+    pos = 0
+    per_index = 0
+    deltas_in_index = 0
+    deltas_total = 0
+    result = ""
+    index_pos = []
+    while(pos<len(data)):
+        adr = "%08x" % pos
+        t = data[pos]
+        c = ord(t)
+        if c == 10: # INDEX marker
+            val = ord(data[pos+2]) * 256 + ord(data[pos+1])
+            pos+=2
+            if verbose:
+                print adr,"INDEX: %04x, samples to last index %08x, sample sum %08x" % (val, per_index, deltas_in_index)
+            per_index = 0
+            deltas_in_index = 0
+            index_pos.append(len(result))
+        elif c == 0: # DELAY
+            val = ord(data[pos+2]) * 256 + ord(data[pos+1])
+            pos+=2
+            if verbose:
+                print adr,"DELAY: %04x" % val            
+        elif c == 13: # SPECIAL
+            code = ord(data[pos+1])
+            if code == 13: # END
+                if verbose:
+                    print adr,"END",len(data)-pos
+                pos += 1
+                break
+            else:
+                slen = ord(data[pos+2])
+                d = data[pos+3:pos+2+slen+2]
+                pos += slen + 3
+                # long word size?
+                if slen % 4 == 0:
+                  dpos = 0
+                  num = slen / 4                  
+                  if verbose:
+                      print adr,"SPECIAL code=",code,
+                      for i in xrange(num):
+                        print "%08x " % decode_num(d,dpos),
+                        dpos += 4
+                      print
+                else:
+                    if verbose:
+                      e = ""
+                      for f in d:
+                          e += " %02x" % ord(f)
+                      print adr,"SPECIAL code=",code,"len=",slen,"[",e,"]",    
+        elif c < b0: # just to be sure
+            print adr,"???",c
+        else: # valid sample data
+            deltas_in_index += c
+            deltas_total += c
+            result += t
+          
+        per_index+=1
+        pos+=1
+        
+    if verbose:
+        print adr,"TOTAL sum %08x" % deltas_total
+    markers = {}
+    markers['index'] = index_pos
+    markers['cell_overflows'] = []
+    markers['cell_overruns']  = []
+    markers['timer_overflows']= []
+    return (result,markers)
 
 # ----- transform time sample to bit cells -----
 
@@ -558,7 +657,7 @@ def print_short_block_tab(blk_tab, track, input_file):
 
 # ----- img stuff -----
 
-def save_image(img_file, data):
+def generate_sample_image(img_file, data):
     global verbose
     
     if verbose:
@@ -596,7 +695,13 @@ def save_image(img_file, data):
             draw.line( (pos, 0, pos, 255), (255,0,255))
         # overflow marker
         elif t == marker_overflow:
-            draw.line( (pos, 0, pos, 255), (0,255,255))
+            draw.line( (pos, b0, pos, 255), (220,220,220))
+        # overrun marker
+        elif t == marker_overrun:
+            draw.line( (pos, b0, pos, b3), (220,128,128))
+        # timer overflow
+        elif t == marker_timer_overflow:
+            draw.line( (pos, b0, pos, b3), (128,128,220))
         # data sample
         else:
             code = time_to_cellcode_num(t)
@@ -625,37 +730,47 @@ def save_image(img_file, data):
 # ----- do work -----
 
 def analyze_file(input_file):
-    global do_spike_filter, do_pll_filter, show_tstat, show_bstat, show_blocks, do_raw, verbose, do_img
+    global do_kryoflux_stream, do_spike_filter, do_pll_filter, show_tstat, show_bstat, show_blocks, do_raw, verbose, do_img
     
     if verbose:
         print "reading track file",input_file
     data = read_track_data(input_file)
     if verbose:
-        print "  got",hex(len(data)),"/",len(data),"track sample bytes"
+        print "  got",hex(len(data)),"/",len(data),"data bytes"
 
-    ovrflow = check_overflow(data)
-    if ovrflow > 0 and verbose:
-        print "  found",ovrflow,"overruns"
-        
-    # filter data
-    if do_spike_filter:
-        (data,num_merged) = filter_spikes(data)
+    # extract markers
+    if do_kryoflux_stream:
         if verbose:
-            print "filtering spikes: merged",num_merged,"samples"
-    if do_pll_filter:
-        (data,error) = filter_pll(data)
-        if verbose:
-            print "filtering with pll: error=",error
+            print "kryflux stream decoding activated"
+        (data,markers) = decode_kryoflux_stream(data)
+    else:
+        # filter data
+        if do_spike_filter:
+            (data,num_merged) = filter_spikes(data)
+            if verbose:
+                print "filtering spikes: merged",num_merged,"samples"
+        if do_pll_filter:
+            (data,error) = filter_pll(data)
+            if verbose:
+                print "filtering with pll: error=",error
+    
+        # export image
+        if do_img:
+            generate_sample_image(input_file + ".png",data)
+    
+        # extract markers
+        (data,markers) = extract_markers(data)
 
-    # img?
-    if do_img:
-        save_image(input_file + ".png",data)
-
-    # extract index
-    (data,index) = extract_index(data)
     if verbose:
-        print "index ranges:   ",len(index)
-        print "  pos/len:      ",index
+        print "markers found in",len(data),"samples"
+        index = markers['index']
+        print "  index ranges:   ",len(index),":",index
+        cell_overruns = markers['cell_overruns']
+        print "  cell overruns:  ",len(cell_overruns),":",cell_overruns
+        cell_overflows = markers['cell_overflows']
+        print "  cell overflows: ",len(cell_overflows),":",cell_overflows
+        timer_overflows = markers['timer_overflows']
+        print "  timer overflows:",len(timer_overflows),":",timer_overflows
 
     # stats
     if show_tstat:
@@ -762,9 +877,10 @@ do_raw = False
 verbose = False
 write_blk = False
 do_img = False
+do_kryoflux_stream = False
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "hvwi",["tstat","bstat","no-spike-filter","pll-filter","blocks","raw"])
+    opts, args = getopt.getopt(sys.argv[1:], "hvwik",["tstat","bstat","no-spike-filter","pll-filter","blocks","raw"])
 except getopt.GetoptError, err:
     print str(err)
     usage()
@@ -791,6 +907,8 @@ for o, a in opts:
         do_raw = True
     elif o == '-i':
         do_img = True
+    elif o == '-k':
+        do_kryoflux_stream = True
     
 # get file name arg
 if len(args) < 1:
