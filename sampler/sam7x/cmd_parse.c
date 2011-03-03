@@ -9,6 +9,7 @@
 #include "track.h"
 #include "memory.h"
 #include "disk.h"
+#include "button.h"
 
 #define CMD_RES_OK              0
 #define CMD_RES_SYNTAX_ERROR    1
@@ -24,8 +25,29 @@ static u08 rx_size;
 u08 cmd_uart_get_next(u08 **data)
 {
   rx_size = 0;
+  int button_press = 0;
   while(1) {
-      while(!uart_read_ready()) {}
+      while(!uart_read_ready()) {
+          // check buttons
+          if(button1_pressed()) {
+              while(button1_pressed()) {}
+              rx_buf[0] = 'R';
+              rx_size = 1;
+              button_press = 1;
+              break;
+          }
+          if(button2_pressed()) {
+              while(button2_pressed()) {}
+              rx_buf[0] = 'W';
+              rx_size = 1;
+              button_press = 1;
+              break;
+          }
+      }
+      if(button_press) {
+          break;
+      }
+
       u08 c;
       uart_read(&c);
       uart_send(c);
@@ -306,6 +328,26 @@ static void cmd_sampler(void)
    }
 }
 
+// diagnose commands
+static void cmd_diagnose(void)
+{
+  u08 cmd, res;
+  u08 exit = 0;
+  while((cmd = get_char()) != 0) {
+     switch(cmd) {
+     case 'b': // buttons
+       res = button1_pressed() | (button2_pressed() << 1);
+       set_result(res);
+       break;
+     default:
+       set_result(CMD_RES_SYNTAX_ERROR);
+     case '.':
+       exit = 1;
+       break;
+     }
+     if(exit) break;
+   }
+}
 
 void cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
 {
@@ -342,6 +384,11 @@ void cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
       // r) sampler commands
       case 'r':
         cmd_sampler();
+        break;
+
+      // d) diagnose commands
+      case 'd':
+        cmd_diagnose();
         break;
 
       // ----- TASKS -----

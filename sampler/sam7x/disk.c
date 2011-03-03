@@ -4,6 +4,7 @@
 #include "trk_read.h"
 #include "uartutil.h"
 #include "track.h"
+#include "button.h"
 
 u08 disk_read_all(u08 begin, u08 end)
 {
@@ -47,6 +48,12 @@ u08 disk_read_all(u08 begin, u08 end)
       st = file_save(t,size,check,0);
       uart_send_hex_byte_crlf(st);
       if(st != 0) {
+          break;
+      }
+
+      // abort if a button was pressed
+      if(button1_pressed()) {
+          while(button1_pressed()) {}
           break;
       }
 
