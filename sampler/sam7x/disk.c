@@ -9,8 +9,15 @@ u08 disk_read_all(u08 begin, u08 end)
 {
   u08 status = 0;
 
-  uart_send_string((u08 *)"disk read");
-  uart_send_crlf();
+  // make directory for track data
+  u32 disk_no = file_find_disk_dir();
+  status = file_make_disk_dir(disk_no);
+  if(status) {
+      return status;
+  }
+
+  uart_send_string((u08 *)"disk read: ");
+  uart_send_hex_dword_crlf(disk_no);
 
   u08 en = floppy_select_on();
   u08 mot = floppy_motor_on();

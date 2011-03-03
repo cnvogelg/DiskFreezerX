@@ -7,6 +7,7 @@
 #include "spiram.h"
 #include "uartutil.h"
 #include "track.h"
+#include "util.h"
 
 static FATFS fatfs;
 
@@ -20,6 +21,9 @@ static void led_proc(void)
   led_yellow(on);
   on = 1-on;
 }
+
+static u08 *dir_name  = (u08 *)"disk0000.dfx";
+static u08 full_name[32];
 
 // fake a time for FAT
 DWORD get_fattime(void)
@@ -36,11 +40,18 @@ u08 file_save(u08 track, u32 size, u32 check, int verbose)
 {
   u32 checksum = 0;
 
-  u08 *name = track_name(track);
+  // compose name: dir_name/trk_name
+  u08 *name = full_name;
+  u08 *trk_ptr = track_name(track);
+  u08 *dir_ptr = dir_name;
+  while((*(name++) = *(dir_ptr++)));
+  name--;
+  *(name++) = '/';
+  while((*(name++) = *(trk_ptr++)));
 
   if(verbose) {
       uart_send_string((u08 *)"file save: ");
-      uart_send_string(name);
+      uart_send_string(full_name);
       uart_send_crlf();
   }
 
@@ -65,7 +76,7 @@ u08 file_save(u08 track, u32 size, u32 check, int verbose)
     }
 
   FIL fh;
-  FRESULT result = f_open(&fh, (char *)name, FA_WRITE | FA_CREATE_ALWAYS);
+  FRESULT result = f_open(&fh, (char *)full_name, FA_WRITE | FA_CREATE_ALWAYS);
   if(result != FR_OK) {
       uart_send_string((u08 *)"error opening file: ");
       uart_send_hex_dword_crlf(result);
@@ -212,5 +223,119 @@ void file_dir(void)
 
   uart_send_string((u08 *)"done");
   uart_send_crlf();
+}
+
+u32 file_find_disk_dir(void)
+{
+  DIR dir;
+  FRESULT res;
+  FILINFO finfo;
+  u32 disk_num = 0;
+
+  pit_irq_start(disk_timerproc, led_proc);
+
+  if(disk_initialize(0) & STA_NOINIT)
+    {
+      uart_send_string((u08 *)"disk_initialize failed!");
+      uart_send_crlf();
+      return 0;
+    }
+
+  if(f_mount(0, &fatfs) != FR_OK)
+    {
+      uart_send_string((u08 *)"disk_initialize failed!");
+      uart_send_crlf();
+      return 0;
+    }
+
+  // read dir
+  res = f_opendir(&dir, "/");
+  if(res) {
+      uart_send_string((u08 *)"f_opendir failed!");
+      uart_send_crlf();
+  } else {
+
+#if _USE_LFN
+      finfo.lfname = lfname;
+      finfo.lfsize = sizeof(lfname);
+#endif
+
+      while (((res = f_readdir(&dir, &finfo)) == FR_OK) && finfo.fname[0]) {
+          u08 *name = (u08 *)finfo.fname;
+          if(finfo.lfname[0]) {
+              name = (u08 *)finfo.lfname;
+          }
+
+          //            012345678901
+          // check for "diskXXXX.dfx" name (len==12)
+          int len = 0;
+          u08 *ptr = name;
+          while(*(ptr++)!=0) { len++; }
+          if(len == 12) {
+              if( (name[0]=='d') && (name[1]=='i') &&
+                  (name[2]=='s') && (name[3]=='k') &&
+                  (name[8]=='.') && (name[9]=='d') &&
+                  (name[10]=='f') && (name[11]=='x') ) {
+                  u16 num;
+                  parse_word(&name[4],&num);
+                  num++;
+                  if(num > disk_num) {
+                      disk_num = num;
+                  }
+              }
+          }
+      }
+  }
+
+  // unmount
+  f_mount(0, 0);
+  disk_ioctl(0, CTRL_POWER, 0); //power off
+
+  pit_irq_stop();
+
+  return disk_num;
+}
+
+u08 file_make_disk_dir(u32 num)
+{
+  FRESULT res;
+
+  pit_irq_start(disk_timerproc, led_proc);
+
+  if(disk_initialize(0) & STA_NOINIT)
+    {
+      uart_send_string((u08 *)"disk_initialize failed!");
+      uart_send_crlf();
+      return 0;
+    }
+
+  if(f_mount(0, &fatfs) != FR_OK)
+    {
+      uart_send_string((u08 *)"disk_initialize failed!");
+      uart_send_crlf();
+      return 0;
+    }
+
+  // generate disk name
+  word_to_hex((u16)(num & 0xffff), dir_name + 4);
+
+  uart_send_string((u08 *)"mkdir: ");
+  uart_send_string(dir_name);
+  uart_send_crlf();
+
+  // create dir
+  res = f_mkdir((const char *)dir_name);
+  if(res) {
+      uart_send_string((u08 *)"f_mkdir failed!");
+      uart_send_crlf();
+  }
+
+  // unmount
+  f_mount(0, 0);
+  disk_ioctl(0, CTRL_POWER, 0); //power off
+
+  pit_irq_stop();
+
+  return res & 0xff;
 }
 

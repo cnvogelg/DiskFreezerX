@@ -248,6 +248,18 @@ static void cmd_io(void)
          }
        }
        break;
+     case 'f': // find next disk name dir
+       {
+         u32 num = file_find_disk_dir();
+         set_result(num & 0xff);
+       }
+       break;
+     case 'm': // make disk dir
+       {
+         res = file_make_disk_dir(parse_hex_byte(0));
+         set_result(res);
+       }
+       break;
      default:
        set_result(CMD_RES_SYNTAX_ERROR);
      case '.':
