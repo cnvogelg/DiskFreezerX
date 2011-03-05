@@ -2,18 +2,18 @@
 
 void uart_init(void)
 {
-    // Enable USART 0
-    AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, 1 << AT91C_ID_US0 ) ;
+    // Enable USART 1
+    AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, 1 << AT91C_ID_US1 ) ;
     
     // Configure PIO controllers to periph mode
 	AT91F_PIO_CfgPeriph(
 		AT91C_BASE_PIOA, // PIO controller base address
-		((unsigned int) AT91C_PA5_RXD0    ) |
-        ((unsigned int) AT91C_PA6_TXD0    ), // Periph A
+		((unsigned int) AT91C_PA21_RXD1    ) |
+		((unsigned int) AT91C_PA22_TXD1    ), // Periph A
         0); // Periph B
 	
-	// setup USART 0
-    AT91PS_USART p = AT91C_BASE_US0;
+	// setup USART 1
+    AT91PS_USART p = AT91C_BASE_US1;
     
     // set mode
     p->US_MR = AT91C_US_USMODE_NORMAL |         // normal mode
@@ -36,28 +36,28 @@ void uart_init(void)
 
 u32 uart_read_ready(void)
 {
-    AT91PS_USART p = AT91C_BASE_US0;
+    AT91PS_USART p = AT91C_BASE_US1;
     u32 status = p->US_CSR;
     return (status & AT91C_US_RXRDY) == AT91C_US_RXRDY;
 }
 
 u32 uart_send_ready(void)
 {
-    AT91PS_USART p = AT91C_BASE_US0;
+    AT91PS_USART p = AT91C_BASE_US1;
     u32 status = p->US_CSR;
     return (status & AT91C_US_TXRDY) == AT91C_US_TXRDY;
 }
 
 u32 uart_read(u08 *data)
 {
-    AT91PS_USART p = AT91C_BASE_US0;
+    AT91PS_USART p = AT91C_BASE_US1;
     *data = (u08)(p->US_RHR & 0xff);
     return true;
 }
 
 u32 uart_send(u08 data)
 {
-    AT91PS_USART p = AT91C_BASE_US0;
+    AT91PS_USART p = AT91C_BASE_US1;
     
     // wait for ready
     while((p->US_CSR & AT91C_US_TXRDY) == 0);

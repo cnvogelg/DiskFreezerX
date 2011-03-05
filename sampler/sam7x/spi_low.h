@@ -8,12 +8,12 @@
 #define SPI_CS0_MASK        (1<<11)
 
 // CS demuxer for RAM
-#define SPI_MULTI_A0_PIN    2
-#define SPI_MULTI_A0_MASK   (1<<2)
-#define SPI_MULTI_A1_PIN    3
-#define SPI_MULTI_A1_MASK   (1<<3)
-#define SPI_MULTI_A2_PIN    4
-#define SPI_MULTI_A2_MASK   (1<<4)
+#define SPI_MULTI_A0_PIN    5
+#define SPI_MULTI_A0_MASK   (1<<5)
+#define SPI_MULTI_A1_PIN    6
+#define SPI_MULTI_A1_MASK   (1<<6)
+#define SPI_MULTI_A2_PIN    7
+#define SPI_MULTI_A2_MASK   (1<<7)
 #define SPI_MULTI_EN_PIN    8
 #define SPI_MULTI_EN_MASK   (1<<8)
 

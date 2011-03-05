@@ -1,0 +1,36 @@
+DiskFreezerX SAM7x256 Pinout
+----------------------------
+
+PA0   OUT   floppy: WRITE DATA         (FD 22)
+PA1   IN    floppy: DISK CHANGE        (FD 34)
+PA2   OUT   floppy: DENSITY SEL        (FD  2)
+PA3   I/O   I2C DATA (RTC)
+PA4   OUT   I2C CLOCK (RTC)
+PA5   OUT   SPIRAM: A0
+PA6   OUT   SPIRAM: A1
+PA7   OUT   SPIRAM: A2
+PA8   OUT   SPIRAM: /ENABLE
+PA9   IN    floppy: TRACK 0            (FD  9)
+PA10  OUT   floppy: SELECT 0           (FD 14)
+PA11  OUT   SD CARD: /CS
+PA12  IN    SPI: MISO
+PA13  OUT   SPI: MOSI
+PA14  OUT   SPI: CLK
+PA15  IN    SD CARD: CARD DETECT
+
+PA16  -     - [Olimex: DP_PUP]
+PA17  OUT   LED 1
+PA18  OUT   LED 2
+PA19  IN    BUTTON 1
+PA20  IN    BUTTON 2
+PA21  IN    RXD1 (Serial)
+PA22  OUT   TXD1 (Serial)
+PA23  OUT   floppy: MOTOR 0            (FD 10)
+PA24  -     - [Olimex: USB_D]
+PA25  IN    SD CARD: WRITE PROTECT
+PA26  IN    floppy: READ DATA          (FD 30)
+PA27  OUT   floppy: DIR SELECT         (FD 18)
+PA28  OUT   floppy: TRACK STEP         (FD 20)
+PA29  OUT   floppy: SIDE SELECT        (FD 32)
+PA30  IN    floppy: INDEX              (FD  8)
+PA31  OUT   floppy: WRITE GATE         (FD 24)
