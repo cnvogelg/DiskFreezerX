@@ -5,6 +5,7 @@
 #include "file.h"
 #include "uart.h"
 #include "uartutil.h"
+#include "floppy-low.h"
 #include "floppy.h"
 #include "track.h"
 #include "memory.h"
@@ -136,6 +137,16 @@ static void cmd_floppy(void)
     case 'f':
       floppy_motor_off();
       set_result(CMD_RES_OK);
+      break;
+    case 'w': // write protected?
+      {
+        // ensure floppy is selected
+        u08 did_sel = floppy_select_on();
+        set_result(floppy_low_is_write_protected());
+        if(did_sel) {
+            floppy_select_off();
+        }
+      }
       break;
     case '?':
       set_result(floppy_status());

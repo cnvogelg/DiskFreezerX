@@ -3,7 +3,7 @@
 #include "delay.h"
 #include "uartutil.h"
 
-// derive mask
+// OUT masks
 #define WRITE_DATA              _BV(WRITE_DATA_PIN)
 #define WRITE_GATE              _BV(WRITE_GATE_PIN)
 #define SIDE_SELECT             _BV(SIDE_SELECT_PIN)
@@ -11,13 +11,16 @@
 #define DIR_SELECT              _BV(DIR_SELECT_PIN)
 #define MOTOR_ENABLE            _BV(MOTOR_ENABLE_PIN)
 #define DRIVE_SELECT            _BV(DRIVE_SELECT_PIN)
+#define DENSITY_SELECT          _BV(DENSITY_SELECT_PIN)
 
+// IN masks
 #define READ_DATA               _BV(READ_DATA_PIN)
 #define TRACK_ZERO              _BV(TRACK_ZERO_PIN)
 #define INDEX                   _BV(INDEX_PIN)
+#define WRITE_PROTECT           _BV(WRITE_PROTECT_PIN)
 
-#define FLOPPY_OUT_MASK     (WRITE_DATA | WRITE_GATE | SIDE_SELECT | HEAD_STEP | DIR_SELECT | MOTOR_ENABLE | DRIVE_SELECT)
-#define FLOPPY_IN_MASK       (READ_DATA | TRACK_ZERO | INDEX)
+#define FLOPPY_OUT_MASK     (WRITE_DATA | WRITE_GATE | SIDE_SELECT | HEAD_STEP | DIR_SELECT | MOTOR_ENABLE | DRIVE_SELECT | DENSITY_SELECT)
+#define FLOPPY_IN_MASK      (READ_DATA | TRACK_ZERO | INDEX | WRITE_PROTECT_PIN)
 
 #define SET_LO(x)       AT91F_PIO_ClearOutput( AT91C_BASE_PIOA, x )
 #define SET_HI(x)       AT91F_PIO_SetOutput( AT91C_BASE_PIOA, x )
@@ -101,6 +104,15 @@ void floppy_low_set_dir(u32 dir)
     DELAY_MS(1);
 }
 
+void floppy_low_set_density(u32 high)
+{
+  if(high) {
+      SET_HI(DENSITY_SELECT);
+  } else {
+      SET_LO(DENSITY_SELECT);
+  }
+}
+
 void floppy_low_set_side(u32 side)
 {
     if(side) {
@@ -144,5 +156,10 @@ u08 floppy_low_seek_zero()
     
     DELAY_MS(16);
     return cnt;
+}
+
+int floppy_low_is_write_protected(void)
+{
+    return !IS_HI( WRITE_PROTECT );
 }
 

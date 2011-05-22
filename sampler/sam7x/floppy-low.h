@@ -37,6 +37,9 @@ extern u08  floppy_low_seek_zero(void);
 
 extern void floppy_low_set_side(u32 dir);
 
+extern void floppy_low_set_density(u32 high);
+extern int  floppy_low_is_write_protected(void);
+
 #endif
 
 
