@@ -21,10 +21,10 @@ void sdpin_init(void)
 
 int  sdpin_no_card(void)
 {
-  return ( AT91F_PIO_GetInput(AT91C_BASE_PIOA) & SD_SOCKET_INS_PIN );
+  return ( AT91F_PIO_GetInput(AT91C_BASE_PIOA) & SD_SOCKET_INS );
 }
 
 int  sdpin_write_protect(void)
 {
-  return ( AT91F_PIO_GetInput(AT91C_BASE_PIOA) & SD_SOCKET_WP_PIN );
+  return ( AT91F_PIO_GetInput(AT91C_BASE_PIOA) & SD_SOCKET_WP );
 }
