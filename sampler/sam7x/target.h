@@ -14,8 +14,8 @@
 // ----- I/O Pins 0..31 -----
 
 // two buttons
-#define BUTTON1_PIN             19
-#define BUTTON2_PIN             20
+#define BUTTON1_PIN             23//19
+#define BUTTON2_PIN             24//20
 
 // leds
 #define LED_GREEN_PIN           18
@@ -32,13 +32,15 @@
 #define SIDE_SELECT_PIN         29
 #define HEAD_STEP_PIN           28
 #define DIR_SELECT_PIN          27
-#define MOTOR_ENABLE_PIN        23
+#define MOTOR_ENABLE_PIN        19//23
 #define DRIVE_SELECT_PIN        10
+#define DENSITY_SELECT_PIN      2
 
 // IN
 #define READ_DATA_PIN           26
 #define TRACK_ZERO_PIN          9
 #define INDEX_PIN               30
+#define WRITE_PROTECT_PIN       1//new
 
 // SPI (reserved)
 #define SPI_MISO_PIN            12
