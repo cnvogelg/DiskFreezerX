@@ -10,6 +10,8 @@
 #include "memory.h"
 #include "disk.h"
 #include "button.h"
+#include "led.h"
+#include "delay.h"
 
 #define CMD_RES_OK              0
 #define CMD_RES_SYNTAX_ERROR    1
@@ -28,6 +30,7 @@ u08 cmd_uart_get_next(u08 **data)
   int button_press = 0;
   while(1) {
       while(!uart_read_ready()) {
+#ifdef USE_BUTTON_CONTROL
           // check buttons
           if(button1_pressed()) {
               while(button1_pressed()) {}
@@ -43,6 +46,7 @@ u08 cmd_uart_get_next(u08 **data)
               button_press = 1;
               break;
           }
+#endif
       }
       if(button_press) {
           break;
@@ -335,9 +339,18 @@ static void cmd_diagnose(void)
   u08 exit = 0;
   while((cmd = get_char()) != 0) {
      switch(cmd) {
-     case 'b': // buttons
+     case 'b': // buttons -> returns 0=no button  1=button2  2=button2  3=both buttons
        res = button1_pressed() | (button2_pressed() << 1);
        set_result(res);
+       break;
+     case 'l': // led: param: 1=green  2=yellow  3=both
+       {
+         cmd = parse_hex_byte(3);
+         led_green(cmd  & 1);
+         led_yellow(cmd & 2);
+         set_result(cmd);
+         delay_ms(1000);
+       }
        break;
      default:
        set_result(CMD_RES_SYNTAX_ERROR);
