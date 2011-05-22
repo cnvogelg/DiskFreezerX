@@ -303,7 +303,7 @@ static void cmd_sampler(void)
   u08 exit = 0;
   while((cmd = get_char()) != 0) {
      switch(cmd) {
-     case 'm':
+     case 'm': // read track to spi ram
        {
          u08 sel = floppy_select_on();
          u08 mot = floppy_motor_on();
@@ -314,13 +314,47 @@ static void cmd_sampler(void)
          set_result(res);
        }
        break;
-     case 'f':
+     case 'f': // fake read track (only to spi ram)
        res = trk_read_sim(parse_hex_byte(1));
        set_result(res);
        break;
-     case 'v':
+     case 'v': // verify track with spi ram
        res = trk_check_spiram(parse_hex_byte(1));
        set_result(res);
+       break;
+       // ----- checks -----
+     case 'i': // index check
+       {
+          u08 sel = floppy_select_on();
+          u08 mot = floppy_motor_on();
+          track_init();
+          res = trk_read_count_index();
+          if(mot) floppy_motor_off();
+          if(sel) floppy_select_off();
+          set_result(res);
+       }
+       break;
+     case 'd': // read data check
+       {
+          u08 sel = floppy_select_on();
+          u08 mot = floppy_motor_on();
+          track_init();
+          res = trk_read_count_data();
+          if(mot) floppy_motor_off();
+          if(sel) floppy_select_off();
+          set_result(res);
+       }
+       break;
+     case 's': // read data spectrum
+       {
+          u08 sel = floppy_select_on();
+          u08 mot = floppy_motor_on();
+          track_init();
+          res = trk_read_data_spectrum();
+          if(mot) floppy_motor_off();
+          if(sel) floppy_select_off();
+          set_result(res);
+       }
        break;
      default:
        set_result(CMD_RES_SYNTAX_ERROR);
