@@ -9,7 +9,7 @@ static u08 max_track = MAX_TRACK;
 static u08 is_init = 0;
 
 // offset                  0123456789
-static u08 *name = (u08 *)"t_xx_y.trk";
+static u08 name[] = {'t','_','x','x','_','y','.','t','r','k',0};
 
 void track_init(void)
 {

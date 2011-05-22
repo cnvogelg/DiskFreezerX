@@ -245,7 +245,7 @@ endif
 
 # Define programs and commands.
 SHELL = sh
-CC = arm-elf-gcc-4.3.2
+CC = arm-elf-gcc-4.5
 CPP = arm-elf-g++
 OBJCOPY = arm-elf-objcopy
 OBJDUMP = arm-elf-objdump
