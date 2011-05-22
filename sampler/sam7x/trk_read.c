@@ -186,7 +186,7 @@ u32 trk_read_count_data(void)
   read_status.cell_overruns = cell_overruns;
   got_index = idx_counter;
 
-  return data_counter;
+  return got_index;
 }
 
 // ----- data spectrum -----
@@ -261,7 +261,7 @@ static int do_read_data_spectrum(void)
   read_status.cell_overflows = value_overflows;
   got_index = idx_counter;
 
-  return data_counter;
+  return got_index;
 }
 
 u32 trk_read_data_spectrum(void)
