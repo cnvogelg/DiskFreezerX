@@ -20,10 +20,10 @@ void button_init(void)
 
 int button1_pressed(void)
 {
-  return ( (AT91F_PIO_GetInput(AT91C_BASE_PIOA) & BUTTON1_PIN) == 0 );
+  return ( (AT91F_PIO_GetInput(AT91C_BASE_PIOA) & BUTTON1) == 0 );
 }
 
 int button2_pressed(void)
 {
-  return ( (AT91F_PIO_GetInput(AT91C_BASE_PIOA) & BUTTON2_PIN) == 0 );
+  return ( (AT91F_PIO_GetInput(AT91C_BASE_PIOA) & BUTTON2) == 0 );
 }
