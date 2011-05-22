@@ -1,8 +1,5 @@
+#include "target.h"
 #include "led.h"
-
-// PIO pins of LEDs
-#define LED_GREEN_PIN   18
-#define LED_YELLOW_PIN  17
 
 #define LED_GREEN           _BV(LED_GREEN_PIN)
 #define LED_YELLOW          _BV(LED_YELLOW_PIN)

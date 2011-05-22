@@ -1,24 +1,7 @@
+#include "target.h"
 #include "floppy-low.h"
 #include "delay.h"
 #include "uartutil.h"
-
-// Hardware Config of Floppy Lines:
-
-// OUT
-#define WRITE_DATA_PIN          0
-#define WRITE_GATE_PIN          31
-#define SIDE_SELECT_PIN         29
-#define HEAD_STEP_PIN           28
-#define DIR_SELECT_PIN          27
-#define MOTOR_ENABLE_PIN        23
-#define DRIVE_SELECT_PIN        10
-
-// IN
-#define READ_DATA_PIN           26
-#define TRACK_ZERO_PIN          9
-#define INDEX_PIN               30
-
-
 
 // derive mask
 #define WRITE_DATA              _BV(WRITE_DATA_PIN)

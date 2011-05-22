@@ -1,23 +1,20 @@
 #ifndef SPI_LOW_H
 #define SPI_LOW_H
 
-#include "board.h"
+#include "target.h"
 
 // CS pins
-#define SPI_CS0_PIN         11
-#define SPI_CS0_MASK        (1<<11)
+
+
+#define SPI_CS0_MASK        _BV(SPI_CS0_PIN)
 
 // CS demuxer for RAM
-#define SPI_MULTI_A0_PIN    5
-#define SPI_MULTI_A0_MASK   (1<<5)
-#define SPI_MULTI_A1_PIN    6
-#define SPI_MULTI_A1_MASK   (1<<6)
-#define SPI_MULTI_A2_PIN    7
-#define SPI_MULTI_A2_MASK   (1<<7)
-#define SPI_MULTI_EN_PIN    8
-#define SPI_MULTI_EN_MASK   (1<<8)
+#define SPI_MULTI_A0_MASK   _BV(SPI_MULTI_A0_PIN)
+#define SPI_MULTI_A1_MASK   _BV(SPI_MULTI_A1_PIN)
+#define SPI_MULTI_A2_MASK   _BV(SPI_MULTI_A2_PIN)
+#define SPI_MULTI_CS_MASK   _BV(SPI_MULTI_CS_PIN)
 
-#define SPI_MULTI_ALL_MASK  (SPI_MULTI_EN_MASK | SPI_MULTI_A0_MASK | SPI_MULTI_A1_MASK | SPI_MULTI_A2_MASK)
+#define SPI_MULTI_ALL_MASK  (SPI_MULTI_CS_MASK | SPI_MULTI_A0_MASK | SPI_MULTI_A1_MASK | SPI_MULTI_A2_MASK)
 
 // setup SPI hardware
 extern void spi_low_cs_init(void);
@@ -73,12 +70,12 @@ __inline void spi_low_disable_cs0(void)
 
 __inline void spi_low_enable_multi(void)
 {
-  AT91F_PIO_ClearOutput( AT91C_BASE_PIOA, SPI_MULTI_EN_MASK );
+  AT91F_PIO_ClearOutput( AT91C_BASE_PIOA, SPI_MULTI_CS_MASK );
 }
 
 __inline void spi_low_disable_multi(void)
 {
-  AT91F_PIO_SetOutput( AT91C_BASE_PIOA, SPI_MULTI_EN_MASK );
+  AT91F_PIO_SetOutput( AT91C_BASE_PIOA, SPI_MULTI_CS_MASK );
 }
 
 extern void spi_low_set_multi(int num);
