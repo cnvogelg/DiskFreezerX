@@ -13,6 +13,7 @@
 #include "button.h"
 #include "led.h"
 #include "delay.h"
+#include "sdpin.h"
 
 #define CMD_RES_OK              0
 #define CMD_RES_SYNTAX_ERROR    1
@@ -395,6 +396,13 @@ static void cmd_diagnose(void)
          led_yellow(cmd & 2);
          set_result(cmd);
          delay_ms(1000);
+       }
+       break;
+     case 'i': // io sd diagnose: show sd detect and sd protect
+       {
+         res = sdpin_no_card() ? 1 :0;
+         res |= sdpin_write_protect() ? 2:0;
+         set_result(res);
        }
        break;
      default:
