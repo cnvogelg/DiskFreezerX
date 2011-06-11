@@ -10,8 +10,8 @@ void spi_low_cs_init(void)
   AT91F_PMC_EnablePeriphClock ( AT91C_BASE_PMC, 1 << AT91C_ID_PIOA ) ;
 
   // manual config CS
-  AT91F_PIO_CfgOutput( AT91C_BASE_PIOA, SPI_CS0_MASK | SPI_MULTI_ALL_MASK );
-  AT91F_PIO_SetOutput( AT91C_BASE_PIOA, SPI_CS0_MASK | SPI_MULTI_ALL_MASK );
+  AT91F_PIO_CfgOutput( AT91C_BASE_PIOA, SPI_ALL_MASK );
+  AT91F_PIO_SetOutput( AT91C_BASE_PIOA, SPI_ALL_MASK );
 }
 
 void spi_low_mst_init(void)
@@ -142,12 +142,12 @@ void spi_low_dma_init(void)
   spi->SPI_RCR = 0;
 }
 
-// ----- Multi -----
+// ----- Set SPI RAM Addr -----
 
-void spi_low_set_multi(int num)
+void spi_low_set_ram_addr(int num)
 {
-  int set_mask = (num & 0x7) << SPI_MULTI_A0_PIN;
+  int set_mask = (num & 0x7) << SPI_RAM_A0_PIN;
   AT91F_PIO_SetOutput( AT91C_BASE_PIOA, set_mask );
-  int clr_mask = ((num ^ 0x7) & 0x7) << SPI_MULTI_A0_PIN;
+  int clr_mask = ((num ^ 0x7) & 0x7) << SPI_RAM_A0_PIN;
   AT91F_PIO_ClearOutput( AT91C_BASE_PIOA, clr_mask );
 }

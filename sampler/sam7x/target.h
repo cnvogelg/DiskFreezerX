@@ -16,7 +16,6 @@
 // two buttons
 #define BUTTON1_PIN             23//19
 #define BUTTON2_PIN             24//20
-
 // leds
 #define LED_GREEN_PIN           18
 #define LED_YELLOW_PIN          17
@@ -41,7 +40,6 @@
 #define TRACK_ZERO_PIN          9
 #define INDEX_PIN               30
 #define WRITE_PROTECT_PIN       1//new
-
 // SPI (reserved)
 #define SPI_MISO_PIN            12
 #define SPI_MOSI_PIN            13
@@ -50,12 +48,26 @@
 // SD Card
 #define SD_SOCKET_WP_PIN        25
 #define SD_SOCKET_INS_PIN       15
-#define SPI_CS0_PIN             11
+#define SPI_SD_CS_PIN           11
 
 // SPI RAM
-#define SPI_MULTI_A0_PIN        5
-#define SPI_MULTI_A1_PIN        6
-#define SPI_MULTI_A2_PIN        7
-#define SPI_MULTI_CS_PIN        8
+#define SPI_RAM_A0_PIN          5
+#define SPI_RAM_A1_PIN          6
+#define SPI_RAM_A2_PIN          7
+#define SPI_RAM_CS_PIN          8
+
+// ---------- SPI SETUP ----------
+
+// SD Card
+#define SPI_SD_CS_MASK        _BV(SPI_SD_CS_PIN)
+
+// SPI RAM
+#define SPI_RAM_A0_MASK       _BV(SPI_RAM_A0_PIN)
+#define SPI_RAM_A1_MASK       _BV(SPI_RAM_A1_PIN)
+#define SPI_RAM_A2_MASK       _BV(SPI_RAM_A2_PIN)
+#define SPI_RAM_CS_MASK       _BV(SPI_RAM_CS_PIN)
+
+// All Mask (for init)
+#define SPI_ALL_MASK           (SPI_SD_CS_MASK | SPI_RAM_CS_MASK | SPI_RAM_A0_MASK | SPI_RAM_A1_MASK | SPI_RAM_A2_MASK)
 
 #endif

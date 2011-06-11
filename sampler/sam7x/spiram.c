@@ -24,23 +24,23 @@ u08 spiram_set_mode(u08 mode)
   u08 result;
 
   // set mode in status register
-  spi_low_enable_multi();
+  spi_low_enable_cs(SPI_RAM_CS_MASK);
   spi_io(SPIRAM_CMD_WRITE_STATUS);
   spi_io(mode);
-  spi_low_disable_multi();
+  spi_low_disable_cs(SPI_RAM_CS_MASK);
 
   // read mode again
-  spi_low_enable_multi();
+  spi_low_enable_cs(SPI_RAM_CS_MASK);
   spi_io(SPIRAM_CMD_READ_STATUS);
   result = spi_io(0xff);
-  spi_low_disable_multi();
+  spi_low_disable_cs(SPI_RAM_CS_MASK);
 
   return result;
 }
 
 void spiram_write_begin(u16 address)
 {
-  spi_low_enable_multi();
+  spi_low_enable_cs(SPI_RAM_CS_MASK);
   spi_io(SPIRAM_CMD_WRITE);
   spi_io((u08)((address >> 8)& 0xff)); // hi byte of addr
   spi_io((u08)(address & 0xff));       // lo byte of addr
@@ -49,7 +49,7 @@ void spiram_write_begin(u16 address)
 
 void spiram_read_begin(u16 address)
 {
-  spi_low_enable_multi();
+  spi_low_enable_cs(SPI_RAM_CS_MASK);
   spi_io(SPIRAM_CMD_READ);
   spi_io((u08)((address >> 8)& 0xff)); // hi byte of addr
   spi_io((u08)(address & 0xff));       // lo byte of addr
@@ -58,7 +58,7 @@ void spiram_read_begin(u16 address)
 
 void spiram_end(void)
 {
-  spi_low_disable_multi();
+  spi_low_disable_cs(SPI_RAM_CS_MASK);
 }
 
 // ----- MULTI RAM ------------------------------------------------------------
@@ -110,7 +110,7 @@ u08 spiram_multi_clear(u08 value)
 
   // write buffer to all banks/chips
   for(int i=0;i<SPIRAM_NUM_CHIPS;i++) {
-      spi_low_set_multi(i);
+      spi_low_set_ram_addr(i);
       spiram_write_begin(0);
       for(int j=0;j<SPIRAM_NUM_BANKS;j++) {
           spi_write_dma(buf, SPIRAM_BUFFER_SIZE);
@@ -121,7 +121,7 @@ u08 spiram_multi_clear(u08 value)
   // verify loop
   u08 error_flag = 0;
   for(int i=0;i<SPIRAM_NUM_CHIPS;i++) {
-      spi_low_set_multi(i);
+      spi_low_set_ram_addr(i);
       spiram_read_begin(0);
       for(int j=0;j<SPIRAM_NUM_BANKS;j++) {
           spi_read_dma(buf, SPIRAM_BUFFER_SIZE);
@@ -166,9 +166,9 @@ void spiram_multi_write_begin(void)
   spiram_checksum = 0;
 
   // pre-select chip 0
-  spi_low_set_multi(0);
+  spi_low_set_ram_addr(0);
   spi_low_dma_enable();
-  spi_low_enable_multi();
+  spi_low_enable_cs(SPI_RAM_CS_MASK);
 }
 
 int spiram_multi_write_next_buffer(void)
@@ -223,5 +223,5 @@ void spiram_multi_write_end(void)
   while(!spi_low_rx_dma_empty());
 
   spi_low_dma_disable();
-  spi_low_disable_multi();
+  spi_low_disable_cs(SPI_RAM_CS_MASK);
 }

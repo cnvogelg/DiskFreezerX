@@ -93,7 +93,7 @@ u08 file_save(u08 track, u32 size, u32 check, int verbose)
       u32 bank = 0;
       u32 addr = 0;
       u32 chip_no = 0;
-      spi_low_set_multi(0);
+      spi_low_set_ram_addr(0);
       u32 total = 0;
       while(size > 0) {
 
@@ -137,7 +137,7 @@ u08 file_save(u08 track, u32 size, u32 check, int verbose)
               addr = 0;
               chip_no ++;
 
-              spi_low_set_multi(chip_no);
+              spi_low_set_ram_addr(chip_no);
 
 #if 0
               uart_send_hex_dword_crlf(blk_check);

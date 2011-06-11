@@ -583,7 +583,7 @@ u08 trk_check_spiram(int verbose)
   u32 addr = 0;
   u32 my_checksum = 0;
 
-  spi_low_set_multi(chip_no);
+  spi_low_set_ram_addr(chip_no);
   u32 total = 0;
   while(size > 0) {
       u08 *data = &spiram_buffer[0][0];
@@ -613,7 +613,7 @@ u08 trk_check_spiram(int verbose)
           chip_no ++;
           bank = 0;
           addr = 0;
-          spi_low_set_multi(chip_no);
+          spi_low_set_ram_addr(chip_no);
 
 #if 0
           uart_send_string((u08 *)"blk ");

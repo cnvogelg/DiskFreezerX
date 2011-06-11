@@ -112,9 +112,9 @@ spiram_multi_write_handle(void)
               // enable new chip
               spiram_dma_chip_no = chip_no;
 
-              spi_low_disable_multi();
-              spi_low_set_multi(chip_no);
-              spi_low_enable_multi();
+              spi_low_disable_cs(SPI_RAM_CS_MASK);
+              spi_low_set_ram_addr(chip_no);
+              spi_low_enable_cs(SPI_RAM_CS_MASK);
             }
 
           // start next DMA

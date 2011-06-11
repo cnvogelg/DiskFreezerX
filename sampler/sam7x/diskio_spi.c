@@ -78,8 +78,8 @@
 
 #define SPI_SCBR_MIN    2
 
-#define SELECT()   spi_low_enable_cs0()
-#define DESELECT() spi_low_disable_cs0()
+#define SELECT()   spi_low_enable_cs(SPI_SD_CS_MASK)
+#define DESELECT() spi_low_disable_cs(SPI_SD_CS_MASK)
 
 #define SOCKWP          0x20                    /* Write protect bit-mask (Bit5 set = */
 #define SOCKINS         0x10                    /* Card detect bit-mask   */

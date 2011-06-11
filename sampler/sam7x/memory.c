@@ -7,7 +7,7 @@
 static u08 memory_test_no_dma(u08 chip_no)
 {
   spiram_init();
-  spi_low_set_multi(chip_no);
+  spi_low_set_ram_addr(chip_no);
 
   /* set sequential mode */
   u08 mode = spiram_set_mode(SPIRAM_MODE_SEQ);
@@ -44,7 +44,7 @@ static u08 memory_test_no_dma(u08 chip_no)
 static u08 memory_test_dma(u08 chip_no)
 {
   spiram_init();
-  spi_low_set_multi(chip_no);
+  spi_low_set_ram_addr(chip_no);
 
   // set sequential mode
   u08 mode = spiram_set_mode(SPIRAM_MODE_SEQ);
@@ -136,7 +136,7 @@ void memory_dump(u08 chip_no,u08 bank)
   u32 buf_no = 0;
   if(chip_no < SPIRAM_NUM_CHIPS) {
       spiram_init();
-      spi_low_set_multi(chip_no);
+      spi_low_set_ram_addr(chip_no);
   } else {
       buf_no = ( chip_no - SPIRAM_NUM_CHIPS) % SPIRAM_NUM_BUFFER;
   }
