@@ -98,7 +98,7 @@ u08 file_save(u08 track, u32 size, u32 check, int verbose)
       while(size > 0) {
 
           // read block from SPIRAM
-          spi_low_set_channel(0);
+          spi_low_set_channel(SPI_RAM_CHANNEL);
           if(spiram_set_mode(SPIRAM_MODE_SEQ)!=SPIRAM_MODE_SEQ) {
               uart_send_string((u08 *)"set mode error!");
               uart_send_crlf();

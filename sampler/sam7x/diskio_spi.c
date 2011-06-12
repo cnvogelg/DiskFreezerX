@@ -109,8 +109,8 @@ BYTE CardType;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
 static void init_spi( void )
 {
   spi_low_dma_init();
-  spi_low_init_channel(1,0xfe,0,1); // slow speed at init
-  spi_low_set_channel(1);
+  spi_low_init_channel(SPI_SD_CHANNEL,0xfe,0,1); // slow speed at init
+  spi_low_set_channel(SPI_SD_CHANNEL);
 
   // enable SPI
   spi_low_enable();
@@ -256,7 +256,7 @@ BYTE send_cmd (
   }
 
   // select SPI channel for SD
-  spi_low_set_channel(1);
+  spi_low_set_channel(SPI_SD_CHANNEL);
 
   /* Select the card and wait for ready */
   DESELECT();
@@ -364,7 +364,7 @@ DSTATUS disk_initialize (
 
   if (ty) {			/* Initialization succeeded */
       Stat &= ~STA_NOINIT;		/* Clear STA_NOINIT */
-      spi_low_set_speed(1, SPI_SCBR_MIN);
+      spi_low_set_speed(SPI_SD_CHANNEL, SPI_SCBR_MIN);
   } else {			/* Initialization failed */
       power_off();
   }

@@ -14,6 +14,7 @@
 #include "led.h"
 #include "delay.h"
 #include "sdpin.h"
+#include "rtc.h"
 
 #define CMD_RES_OK              0
 #define CMD_RES_SYNTAX_ERROR    1
@@ -378,6 +379,65 @@ static void cmd_sampler(void)
    }
 }
 
+// clock commands
+static void cmd_clock(void)
+{
+  u08 cmd, value;
+  u08 exit = 0;
+  rtc_time t;
+  while((cmd = get_char()) != 0) {
+     switch(cmd) {
+     case '?': // get time (raw)
+       {
+         rtc_get(t);
+         for(int i=0;i<7;i++) {
+             uart_send_hex_byte_space(t[i]);
+         }
+         uart_send_crlf();
+         set_result(0);
+       }
+       break;
+     case 't': // get time
+       {
+         u08 *str = (u08 *)rtc_get_time_str();
+         uart_send_string(str);
+         uart_send_crlf();
+       }
+       break;
+     case 'y': // set year
+       value = parse_hex_byte(0);
+       rtc_set_entry(RTC_INDEX_YEAR, value);
+       break;
+     case 'o': // set year
+       value = parse_hex_byte(1);
+       rtc_set_entry(RTC_INDEX_MONTH, value);
+       break;
+     case 'd': // set day
+       value = parse_hex_byte(1);
+       rtc_set_entry(RTC_INDEX_DAY, value);
+       break;
+     case 'h': // set hour
+       value = parse_hex_byte(0);
+       rtc_set_entry(RTC_INDEX_HOUR, value);
+       break;
+     case 'i': // set minute
+       value = parse_hex_byte(1);
+       rtc_set_entry(RTC_INDEX_MINUTE, value);
+       break;
+     case 's': // set seconds
+       value = parse_hex_byte(1);
+       rtc_set_entry(RTC_INDEX_SECOND, value);
+       break;
+     default:
+       set_result(CMD_RES_SYNTAX_ERROR);
+     case '.':
+       exit = 1;
+       break;
+     }
+     if(exit) break;
+   }
+}
+
 // diagnose commands
 static void cmd_diagnose(void)
 {
@@ -455,6 +515,11 @@ void cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
       // d) diagnose commands
       case 'd':
         cmd_diagnose();
+        break;
+
+      // c) clock commands
+      case 'c':
+        cmd_clock();
         break;
 
       // ----- TASKS -----

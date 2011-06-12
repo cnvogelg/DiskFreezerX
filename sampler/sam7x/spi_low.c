@@ -63,8 +63,9 @@ void spi_low_set_speed(int ch, int scbr)
 
 void spi_low_set_channel(int ch)
 {
+  const u32 select[4] = { 0,1,3,7 };
   u32 old = AT91C_BASE_SPI->SPI_MR &  ~(AT91C_SPI_PCS);
-  AT91C_BASE_SPI->SPI_MR = old | (ch << 16);
+  AT91C_BASE_SPI->SPI_MR = old | (select[ch] << 16);
 }
 
 void spi_low_slv_init(void)

@@ -14,6 +14,7 @@
 #include "memory.h"
 #include "floppy.h"
 #include "track.h"
+#include "rtc.h"
 
 int main(void)
 {
@@ -31,10 +32,16 @@ int main(void)
     uart_send_crlf();
 
     // do initial setup
+    rtc_init();
     memory_init();
     floppy_select_on();
     track_init();
     floppy_select_off();
+
+    // print current RTC
+    uart_send_string((u08 *)"rtc:  ");
+    uart_send_string((u08 *)rtc_get_time_str());
+    uart_send_crlf();
 
     while(1) {
         uart_send_string((u08 *)"> ");
