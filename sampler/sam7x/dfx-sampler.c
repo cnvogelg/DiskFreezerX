@@ -15,6 +15,7 @@
 #include "floppy.h"
 #include "track.h"
 #include "rtc.h"
+#include "wiz.h"
 
 int main(void)
 {
@@ -33,6 +34,7 @@ int main(void)
 
     // do initial setup
     rtc_init();
+    wiz_init();
     memory_init();
     floppy_select_on();
     track_init();

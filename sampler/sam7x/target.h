@@ -59,12 +59,16 @@
 // RTC
 #define SPI_RTC_CS_PIN          4
 
+// WIZ
+#define SPI_WIZ_CS_PIN          3
+
 // ---------- SPI SETUP ----------
 
 // Channels
 #define SPI_RAM_CHANNEL        0
 #define SPI_SD_CHANNEL         1
 #define SPI_RTC_CHANNEL        2
+#define SPI_WIZ_CHANNEL        3
 
 // SD Card
 #define SPI_SD_CS_MASK        _BV(SPI_SD_CS_PIN)
@@ -78,7 +82,10 @@
 // RTC
 #define SPI_RTC_CS_MASK       _BV(SPI_RTC_CS_PIN)
 
+// WIZ
+#define SPI_WIZ_CS_MASK       _BV(SPI_WIZ_CS_PIN)
+
 // All Mask (for init)
-#define SPI_ALL_MASK           (SPI_SD_CS_MASK | SPI_RAM_CS_MASK | SPI_RAM_A0_MASK | SPI_RAM_A1_MASK | SPI_RAM_A2_MASK | SPI_RTC_CS_MASK)
+#define SPI_ALL_MASK           (SPI_SD_CS_MASK | SPI_RAM_CS_MASK | SPI_RAM_A0_MASK | SPI_RAM_A1_MASK | SPI_RAM_A2_MASK | SPI_RTC_CS_MASK | SPI_WIZ_CS_MASK)
 
 #endif

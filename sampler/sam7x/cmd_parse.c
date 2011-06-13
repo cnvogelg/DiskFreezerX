@@ -15,6 +15,8 @@
 #include "delay.h"
 #include "sdpin.h"
 #include "rtc.h"
+#include "wiz_low.h"
+#include "wiz.h"
 
 #define CMD_RES_OK              0
 #define CMD_RES_SYNTAX_ERROR    1
@@ -438,6 +440,103 @@ static void cmd_clock(void)
    }
 }
 
+// wiznet commands
+static void cmd_wiznet(void)
+{
+  u08 cmd, res, val;
+  u16 addr;
+  u08 exit = 0;
+  while((cmd = get_char()) != 0) {
+     switch(cmd) {
+     case 'r': // low level: read byte <addr/16>
+       addr = parse_hex_byte(0) << 8 | parse_hex_byte(0);
+
+       wiz_low_begin();
+       res = wiz_low_read(addr);
+       wiz_low_end();
+
+       set_result(res);
+       uart_send_hex_word_space(addr);
+       uart_send_hex_byte_crlf(res);
+       break;
+     case 'w': // low level: write byte <addr/16><val/8>
+       addr = parse_hex_byte(0) << 8 | parse_hex_byte(0);
+       val = parse_hex_byte(0);
+
+       wiz_low_begin();
+       wiz_low_write(addr,val);
+       wiz_low_end();
+
+       set_result(val);
+       uart_send_hex_word_space(addr);
+       uart_send_hex_byte_crlf(val);
+       break;
+     case '?': // give info
+       {
+         // mac address
+         uart_send_string((u08 *)"mac: ");
+         uart_send_string((u08 *)wiz_get_mac_str());
+         uart_send_crlf();
+         // src address
+         uart_send_string((u08 *)"src: ");
+         uart_send_string((u08 *)wiz_get_ip_str(WIZ_IP_TYPE_SOURCE));
+         uart_send_crlf();
+         // sub address
+         uart_send_string((u08 *)"net: ");
+         uart_send_string((u08 *)wiz_get_ip_str(WIZ_IP_TYPE_SUBNET_MASK));
+         uart_send_crlf();
+         // gateway address
+         uart_send_string((u08 *)"gw:  ");
+         uart_send_string((u08 *)wiz_get_ip_str(WIZ_IP_TYPE_GATEWAY));
+         uart_send_crlf();
+       }
+       break;
+     case 'm': // set mac 6*<8>
+       {
+         u08 mac[6];
+         for(int i=0;i<6;i++) {
+             mac[i] = parse_hex_byte(0);
+         }
+         wiz_set_mac(mac);
+       }
+       break;
+     case 's': // set src 4*<8>
+       {
+         u08 ip[4];
+         for(int i=0;i<4;i++) {
+             ip[i] = parse_hex_byte(0);
+         }
+         wiz_set_ip(WIZ_IP_TYPE_SOURCE,ip);
+       }
+       break;
+     case 'n': // set netmask 4*<8>
+       {
+         u08 ip[4];
+         for(int i=0;i<4;i++) {
+             ip[i] = parse_hex_byte(0);
+         }
+         wiz_set_ip(WIZ_IP_TYPE_SUBNET_MASK,ip);
+       }
+       break;
+     case 'g': // set gateway 4*<8>
+       {
+         u08 ip[4];
+         for(int i=0;i<4;i++) {
+             ip[i] = parse_hex_byte(0);
+         }
+         wiz_set_ip(WIZ_IP_TYPE_GATEWAY,ip);
+       }
+       break;
+     default:
+       set_result(CMD_RES_SYNTAX_ERROR);
+     case '.':
+       exit = 1;
+       break;
+     }
+     if(exit) break;
+   }
+}
+
 // diagnose commands
 static void cmd_diagnose(void)
 {
@@ -520,6 +619,11 @@ void cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
       // c) clock commands
       case 'c':
         cmd_clock();
+        break;
+
+      // w) wiznet commands
+      case 'w':
+        cmd_wiznet();
         break;
 
       // ----- TASKS -----
