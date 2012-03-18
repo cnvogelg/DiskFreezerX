@@ -26,4 +26,7 @@ extern u08  rtc_get_entry(u08 index);
 
 extern char *rtc_get_time_str(void);
 
+extern void rtc_write_sram(u08 addr, const u08 *data, u08 size);
+extern void rtc_read_sram(u08 addr, u08 *data, u08 size);
+
 #endif

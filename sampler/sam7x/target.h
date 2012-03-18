@@ -88,4 +88,10 @@
 // All Mask (for init)
 #define SPI_ALL_MASK           (SPI_SD_CS_MASK | SPI_RAM_CS_MASK | SPI_RAM_A0_MASK | SPI_RAM_A1_MASK | SPI_RAM_A2_MASK | SPI_RTC_CS_MASK | SPI_WIZ_CS_MASK)
 
+// ---------- RTC SRAM Usage ----------
+
+// WIZ (IP Config)
+#define RTC_MEM_OFFSET_WIZ_IP      0
+#define RTC_MEM_SIZE_WIZ_IP        18
+
 #endif

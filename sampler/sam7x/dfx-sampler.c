@@ -45,6 +45,11 @@ int main(void)
     uart_send_string((u08 *)rtc_get_time_str());
     uart_send_crlf();
 
+    // show wiznet ip
+    uart_send_string((u08 *)"wiz:  ");
+    uart_send_string((u08 *)wiz_get_ip_str(WIZ_IP_TYPE_SOURCE));
+    uart_send_crlf();
+
     while(1) {
         uart_send_string((u08 *)"> ");
         

@@ -527,6 +527,21 @@ static void cmd_wiznet(void)
          wiz_set_ip(WIZ_IP_TYPE_GATEWAY,ip);
        }
        break;
+     case 'S': // save to sram
+       wiz_save_to_sram();
+       break;
+     case 'L': // load from sram
+       wiz_load_from_sram();
+       break;
+     case 'c': // connect test
+       {
+         u16 dst_port = 4711;
+         u16 src_port = 0x6502;
+         u08 dst_ip[4] = { 192,168,2,47 };
+         int result = wiz_begin_tcp_client(src_port, dst_ip, dst_port);
+         set_result(result);
+       }
+       break;
      default:
        set_result(CMD_RES_SYNTAX_ERROR);
      case '.':

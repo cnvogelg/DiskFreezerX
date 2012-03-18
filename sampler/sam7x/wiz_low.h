@@ -12,5 +12,7 @@ extern void wiz_low_begin(void);
 extern void wiz_low_end(void);
 extern void wiz_low_write(u16 addr, u08 value);
 extern u08  wiz_low_read(u16 addr);
+extern void wiz_low_write_word(u16 addr, u16 value);
+extern u16  wiz_low_read_word(u16 addr);
 
 #endif

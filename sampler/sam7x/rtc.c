@@ -5,6 +5,8 @@
 
 #define DS3234_CTRL             0x0e
 #define DS3234_STATUS           0x0f
+#define DS3234_ADDR             0x18
+#define DS3234_DATA             0x19
 
 #define DS3234_STATUS_BSY       0x02
 
@@ -103,4 +105,32 @@ char *rtc_get_time_str(void)
   byte_to_hex(t[RTC_INDEX_SECOND], (u08 *)&time_str[15]);
 
   return time_str;
+}
+
+// RTC SRAM access
+
+void rtc_write_sram(u08 addr, const u08 *data, u08 size)
+{
+  spi_low_set_channel(SPI_RTC_CHANNEL);
+  spi_low_enable();
+
+  rtc_write(DS3234_ADDR, addr);
+  for(u08 i=0;i<size;i++) {
+      rtc_write(DS3234_DATA, data[i]);
+  }
+
+  spi_low_disable();
+}
+
+void rtc_read_sram(u08 addr, u08 *data, u08 size)
+{
+  spi_low_set_channel(SPI_RTC_CHANNEL);
+  spi_low_enable();
+
+  rtc_write(DS3234_ADDR, addr);
+  for(u08 i=0;i<size;i++) {
+      data[i] = rtc_read(DS3234_DATA);
+  }
+
+  spi_low_disable();
 }

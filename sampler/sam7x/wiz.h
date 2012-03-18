@@ -24,4 +24,10 @@ extern void wiz_get_mac(u08 mac[6]);
 extern char *wiz_get_ip_str(int type);
 extern char *wiz_get_mac_str(void);
 
+extern void wiz_load_from_sram(void);
+extern void wiz_save_to_sram(void);
+
+extern int wiz_begin_tcp_client(u16 src_port, u08 dst_ip[4], u16 dst_port);
+extern int wiz_end_tcp_client(void);
+
 #endif
