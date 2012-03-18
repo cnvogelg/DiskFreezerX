@@ -66,7 +66,7 @@ u32  trk_read_get_index_pos(u32 i)
 static volatile u32 idx_counter;
 static volatile u32 idx_flag;
 
-#define NO_IDX_COUNT 0xf0000000
+#define NO_IDX_COUNT 0x500000
 
 static void index_func(void)
 {
@@ -93,7 +93,8 @@ u32 trk_read_count_index(void)
   // wait for index
   while(idx_counter<max_index) {
       // no index found
-      if(pit_peek() > NO_IDX_COUNT) {
+      u32 p = pit_peek();
+      if(p > NO_IDX_COUNT) {
           break;
       }
   }

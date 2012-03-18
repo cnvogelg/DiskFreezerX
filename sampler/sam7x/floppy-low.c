@@ -57,7 +57,7 @@ void floppy_low_enable_index_intr(func f)
     AT91F_AIC_EnableIt (AT91C_BASE_AIC, AT91C_ID_IRQ1); // AIC_IECR    
 
     // force FIQ
-    //*AT91C_AIC_FFER = AT91C_ID_IRQ1;
+    *AT91C_AIC_FFER = AT91C_ID_IRQ1;
 }
 
 void floppy_low_disable_index_intr(void)
