@@ -423,6 +423,9 @@ u08 trk_read_to_spiram(int verbose)
   u32 index_counter = max_index;
   u32 my_index[MAX_INDEX];
 
+  u08 code[16];
+  u32 code_size = 0;
+
   reset_status();
 
   read_status.track_num = track_num();
@@ -461,47 +464,57 @@ u08 trk_read_to_spiram(int verbose)
   u32 status = timer2_get_status();
   u32 delta = timer2_get_capture_a();
 
-  // core loop for reading a track
-  while(index_counter > 0) {
+#define PUT_CODE(x) code[code_size++] = x
 
-      // cell sample timer
+  // core loop for reading a track
+  while(index_counter) {
       status = timer2_get_status();
 
-      // valid capture
       if(status & AT91C_TC_LDRAS) {
           // new cell delta
           delta = timer2_get_capture_a();
 
           // overflow?
           if(delta > LAST_VALUE) {
-              spiram_multi_write_byte(MARKER_OVERFLOW);
-              spiram_multi_write_byte((u08)((delta >> 8)&0xff));
-              spiram_multi_write_byte((u08)(delta & 0xff));
+              PUT_CODE(MARKER_OVERFLOW);
+              PUT_CODE((u08)((delta >> 8)&0xff));
+              PUT_CODE((u08)(delta & 0xff));
               cell_overflows++;
           } else {
               u08 d = (u08)(delta & 0xff);
-              spiram_multi_write_byte(d);
+              PUT_CODE(d);
           }
-
-          // index marker was found
-          if(idx_flag) {
-              spiram_multi_write_byte(MARKER_INDEX);
-              index_counter--;
-              my_index[index_counter] = idx_flag;
-              idx_flag = 0;
-          }
-          // handle SPI transfer
-          spiram_multi_write_handle();
+      } else {
+        // timer overflow
+        if(status & AT91C_TC_COVFS) {
+            PUT_CODE(MARKER_TIMER_OVERFLOW);
+            timer_overflows++;
+        }
       }
+
       // load overrun in capture register
       if(status & AT91C_TC_LOVRS) {
           cell_overruns++;
-          spiram_multi_write_byte(MARKER_OVERRUN);
+          PUT_CODE(MARKER_OVERRUN);
       }
-      // timer overflow
-      if(status & AT91C_TC_COVFS) {
-          timer_overflows++;
-          spiram_multi_write_byte(MARKER_TIMER_OVERFLOW);
+
+      // write SPI ram
+      if(code_size) {
+           // write to SPI ram
+           for(int i=0;i<code_size;i++) {
+               spiram_multi_write_byte(code[i]);
+           }
+           code_size = 0;
+
+           spiram_multi_write_handle();
+      }
+
+      // handle index
+      if(idx_flag) {
+        PUT_CODE(MARKER_INDEX);
+        index_counter--;
+        my_index[index_counter] = idx_flag;
+        idx_flag = 0;
       }
   }
 
