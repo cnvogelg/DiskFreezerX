@@ -21,7 +21,7 @@
 // ========== DATA ============================================================
 
 // index store
-static u32 max_index = 5;
+static u32 max_index = 3;
 static u32 got_index = 0;
 
 static volatile u32 index_pos[MAX_INDEX];
@@ -57,8 +57,9 @@ static void data_func(void)
 
   // store sample
   if(status & AT91C_TC_LDRAS) {
+      u32 delta = timer2_get_capture_a();
       u32 pos = sample_put_pos;
-      sample_buf[pos] = timer2_get_capture_a();
+      sample_buf[pos] = delta;
       sample_counter ++;
       sample_put_pos = (pos + 1) & SAMPLE_BUF_MASK;
   }
@@ -502,6 +503,7 @@ u08 trk_read_to_spiram(int verbose)
 
   floppy_low_enable_index_intr(index_func);
 
+#if 0
   // wait for an index
   while(idx_counter < 1) {
       // no index found!
@@ -516,6 +518,7 @@ u08 trk_read_to_spiram(int verbose)
   }
 
   idx_counter = 0;
+#endif
 
   // begin bulk transfer
   spi_low_mst_init();
@@ -532,6 +535,8 @@ u08 trk_read_to_spiram(int verbose)
   timer2_enable_intr(data_func);
   timer2_enable();
   timer2_trigger();
+
+  u32 first = 1;
 
   // core loop for reading a track
   while(idx_counter < max_index) {
@@ -550,18 +555,22 @@ u08 trk_read_to_spiram(int verbose)
               break;
           }
 
-          // read sample
-          u32 delta = sample_buf[pos];
-
-          // overflow?
-          if(delta > LAST_VALUE) {
-              spiram_multi_write_byte(MARKER_OVERFLOW);
-              spiram_multi_write_byte((u08)((delta >> 8)&0xff));
-              spiram_multi_write_byte((u08)(delta & 0xff));
-              value_overflows++;
+          if(first) {
+              first = 0;
           } else {
-              u08 d = (u08)(delta & 0xff);
-              spiram_multi_write_byte(d);
+            // read sample
+            u32 delta = sample_buf[pos];
+
+            // overflow?
+            if(delta > LAST_VALUE) {
+                spiram_multi_write_byte(MARKER_OVERFLOW);
+                spiram_multi_write_byte((u08)((delta >> 8)&0xff));
+                spiram_multi_write_byte((u08)(delta & 0xff));
+                value_overflows++;
+            } else {
+                u08 d = (u08)(delta & 0xff);
+                spiram_multi_write_byte(d);
+            }
           }
 
           // next pos
