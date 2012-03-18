@@ -6,15 +6,18 @@
 #include "track.h"
 #include "button.h"
 
-u08 disk_read_all(u08 begin, u08 end)
+u08 disk_read_all(u08 begin, u08 end, int do_save)
 {
   u08 status = 0;
+  u32 disk_no = 0;
 
-  // make directory for track data
-  u32 disk_no = file_find_disk_dir();
-  status = file_make_disk_dir(disk_no);
-  if(status) {
-      return status;
+  if(do_save) {
+    // make directory for track data
+    disk_no = file_find_disk_dir();
+    status = file_make_disk_dir(disk_no);
+    if(status) {
+        return status;
+    }
   }
 
   uart_send_string((u08 *)"disk read: ");
@@ -45,10 +48,15 @@ u08 disk_read_all(u08 begin, u08 end)
 
       u32 size = rs->data_size;
       u32 check = rs->data_checksum;
-      st = file_save(t,size,check,0);
-      uart_send_hex_byte_crlf(st);
-      if(st != 0) {
-          break;
+
+      if(do_save) {
+        st = file_save(t,size,check,0);
+        uart_send_hex_byte_crlf(st);
+        if(st != 0) {
+            break;
+        }
+      } else {
+        uart_send_crlf();
       }
 
       // abort if a button was pressed

@@ -644,7 +644,12 @@ void cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
       // ----- TASKS -----
       // R) read disk
       case 'R':
-        res = disk_read_all(parse_hex_byte(0),parse_hex_byte(160));
+        res = disk_read_all(parse_hex_byte(0),parse_hex_byte(160),1);
+        set_result(res);
+        break;
+      // F) fake read disk
+      case 'F':
+        res = disk_read_all(parse_hex_byte(0),parse_hex_byte(160),0);
         set_result(res);
         break;
       }

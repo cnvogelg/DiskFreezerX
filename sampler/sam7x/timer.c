@@ -56,3 +56,29 @@ void timer2_init( void )
                   | AT91C_TC_ABETRG, // TIOA2 is trigger
                   AT91C_ID_TC2);
 }
+
+#define TIMER2_INTERRUPT_LEVEL    4   // 0=lowest  7=highest
+
+void timer2_enable_intr(irq_func f)
+{
+    // configure irq for TC2
+    AT91F_AIC_ConfigureIt(AT91C_BASE_AIC, AT91C_ID_TC2,
+                          TIMER2_INTERRUPT_LEVEL,
+                          AT91C_AIC_SRCTYPE_EXT_NEGATIVE_EDGE, f);
+    AT91F_AIC_EnableIt (AT91C_BASE_AIC, AT91C_ID_TC2); // AIC_IECR
+
+    // force FIQ
+    *AT91C_AIC_FFER = AT91C_ID_TC2;
+
+    // enable irq: load a and overflow load and overflow counter
+    AT91F_TC_InterruptEnable(AT91C_BASE_TC2, AT91C_TC_LDRAS | AT91C_TC_LOVRS | AT91C_TC_COVFS);
+}
+
+void timer2_disable_intr(void)
+{
+    AT91F_TC_InterruptDisable(AT91C_BASE_TC2, AT91C_TC_LDRAS | AT91C_TC_LOVRS | AT91C_TC_COVFS);
+
+    AT91F_AIC_DisableIt (AT91C_BASE_AIC, AT91C_ID_TC2); // AIC_IECR
+}
+
+

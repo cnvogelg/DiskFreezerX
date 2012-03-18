@@ -37,7 +37,11 @@ __inline void timer1_disable(void)
 }
 
 // TIMER2: Capture Timer for Read Data
+typedef void (*irq_func)(void);
+
 void timer2_init( void );
+void timer2_enable_intr(irq_func f);
+void timer2_disable_intr(void);
 
 __inline u32 timer2_get_status( void )
 {
