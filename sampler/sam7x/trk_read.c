@@ -11,69 +11,14 @@
 // max number of indexes per track
 #define MAX_INDEX      8
 
-// pit timer value to wait for no index
-#define NO_IDX_COUNT 0x500000
-
-// number of samples to keep in ring buffer
-#define MAX_SAMPLE_BUF  16
-#define SAMPLE_BUF_MASK (MAX_SAMPLE_BUF-1)
-
-// ========== DATA ============================================================
+// ----- read track state -----
 
 // index store
-static u32 max_index = 3;
+static u32 index_pos[MAX_INDEX];
+static u32 max_index = 5;
 static u32 got_index = 0;
 
-static volatile u32 index_pos[MAX_INDEX];
-static volatile u32 idx_counter;
-static volatile u32 idx_flag;
-
-// sample store
-static volatile u32 sample_buf[MAX_SAMPLE_BUF];
-static volatile u32 sample_put_pos = 0;
-static volatile u32 sample_get_pos = 0;
-
-static volatile u32 sample_counter = 0;
-static volatile u32 sample_overruns = 0;
-
-// external status info
 static read_status_t read_status;
-
-// ========== IRQ HANDLER =====================================================
-
-// index irq -> store next index and set flag
-static void index_func(void)
-{
-  index_pos[idx_counter] = pit_peek();
-  idx_counter++;
-  idx_flag=1;
-}
-
-// data func timer irq -> store sample (and error conditions)
-static void data_func(void)
-{
-  // check bit cell timer
-  u32 status = timer2_get_status();
-
-  // store sample
-  if(status & AT91C_TC_LDRAS) {
-      u32 delta = timer2_get_capture_a();
-      u32 pos = sample_put_pos;
-      sample_buf[pos] = delta;
-      sample_counter ++;
-      sample_put_pos = (pos + 1) & SAMPLE_BUF_MASK;
-  }
-  // sample was overrun
-  if(status & AT91C_TC_LOVRS) {
-      sample_overruns ++;
-  }
-  // counter overflowed
-  if(status & AT91C_TC_COVFS) {
-      sample_buf[sample_put_pos] += 0x10000;
-  }
-}
-
-// ========== FUNCTIONS =======================================================
 
 // ----- status -----
 
@@ -118,6 +63,17 @@ u32  trk_read_get_index_pos(u32 i)
 // ------ index -----
 // try to find 5 index markers on disk
 // and measure their distance
+static volatile u32 idx_counter;
+static volatile u32 idx_flag;
+
+#define NO_IDX_COUNT 0xf0000000
+
+static void index_func(void)
+{
+  index_pos[idx_counter] = pit_peek();
+  idx_counter++;
+  idx_flag=1;
+}
 
 u32 trk_read_count_index(void)
 {
@@ -137,8 +93,7 @@ u32 trk_read_count_index(void)
   // wait for index
   while(idx_counter<max_index) {
       // no index found
-      u32 p = pit_peek();
-      if(p > NO_IDX_COUNT) {
+      if(pit_peek() > NO_IDX_COUNT) {
           break;
       }
   }
@@ -163,7 +118,7 @@ u32 trk_read_count_index(void)
   return idx_counter;
 }
 
-// ----- count data -----------------------------------------------------------
+// ----- count data -----
 // count the number of bitcells on a track
 
 u32 trk_read_count_data(void)
@@ -171,6 +126,8 @@ u32 trk_read_count_data(void)
   reset_status();
 
   timer2_init();
+
+  u32 max = max_index;
 
   idx_counter = 0;
 
@@ -193,53 +150,40 @@ u32 trk_read_count_data(void)
       return 0;
   }
 
-  idx_counter = 0;
-  sample_put_pos = 0;
-  sample_get_pos = 0;
-  sample_counter = 0;
-  sample_overruns = 0;
-  u32 own_counter = 0;
-
-  timer2_enable_intr(data_func);
   timer2_enable();
   timer2_trigger();
+  u32 data_counter = 0;
+  u32 cell_overruns = 0;
+  idx_counter = 0;
+  while(idx_counter < max) {
 
-  while(idx_counter < max_index) {
-      // read sample buffer
-      while(1) {
-          u32 pos = sample_get_pos;
-          // nothing to do
-          if(pos == sample_put_pos) {
-              break;
-          }
-
-          // now process sample but we ignore this here...
-          own_counter ++;
-
-          // next pos
-          pos = (pos + 1) & SAMPLE_BUF_MASK;
-          sample_get_pos = pos;
+      // check bit cell timer
+      u32 status = timer2_get_status();
+      if(status & AT91C_TC_LDRAS) {
+          // found a bitcell delta
+          data_counter ++;
+          timer2_get_capture_a();
+      }
+      if(status & AT91C_TC_LOVRS) {
+          cell_overruns ++;
       }
   }
 
   timer2_disable();
-  timer2_disable_intr();
 
   floppy_low_disable_index_intr();
   pit_disable();
 
-  if(sample_overruns > 0) {
-      uart_send_string((u08 *)"sample overruns: ");
-      uart_send_hex_dword_crlf(sample_overruns);
+  if(cell_overruns > 0) {
+      uart_send_string((u08 *)"cell  overruns: ");
+      uart_send_hex_dword_crlf(cell_overruns);
   }
 
-  uart_send_string((u08 *)"samples put=");
-  uart_send_hex_dword_crlf(sample_counter);
-  uart_send_string((u08 *)"samples get=");
-  uart_send_hex_dword_crlf(own_counter);
+  uart_send_string((u08 *)"data found=");
+  uart_send_hex_dword_crlf(data_counter);
 
   // store in global status
-  read_status.cell_overruns = sample_overruns;
+  read_status.cell_overruns = cell_overruns;
   got_index = idx_counter;
 
   return got_index;
@@ -255,7 +199,6 @@ static int do_read_data_spectrum(void)
 
   timer2_init();
 
-  // reset state
   idx_counter = 0;
 
   pit_set_max(0);
@@ -277,57 +220,44 @@ static int do_read_data_spectrum(void)
       return 0;
   }
 
-  idx_counter = 0;
-  sample_put_pos = 0;
-  sample_get_pos = 0;
-  sample_counter = 0;
-  sample_overruns = 0;
-  u32 value_overflows = 0;
-
-  // core loop
-  timer2_enable_intr(data_func);
+  // core loop: wait for one index -> one track
   timer2_enable();
   timer2_trigger();
-
-  while(idx_counter < max_index) {
-      // read sample buffer
-      while(1) {
-          u32 pos = sample_get_pos;
-
-          // nothing to do
-          if(pos == sample_put_pos) {
-              break;
-          }
-
-          // read sample
-          u32 sample = sample_buf[pos];
-          if(sample > 255)
-              value_overflows++;
+  u32 cell_overruns = 0;
+  u32 data_counter = 0;
+  u32 value_overflows = 0;
+  idx_counter = 0;
+  u32 max = max_index;
+  while(idx_counter < max) {
+      u32 status = timer2_get_status();
+      if(status & AT91C_TC_LDRAS) {
+          u16 delta = (u16)timer2_get_capture_a();
+          if(delta > 255)
+            value_overflows++;
           else {
-              table[sample]++;
+              table[delta]++;
           }
+          data_counter++;
 
-          // next pos
-          pos = (pos + 1) & SAMPLE_BUF_MASK;
-          sample_get_pos = pos;
+      }
+      if(status & AT91C_TC_LOVRS) {
+          cell_overruns++;
       }
   }
 
   timer2_disable();
-  timer2_disable_intr();
-
   floppy_low_disable_index_intr();
 
-  if(sample_overruns > 0) {
-      uart_send_string((u08 *)"sample overruns: ");
-      uart_send_hex_dword_crlf(sample_overruns);
+  if(cell_overruns > 0) {
+      uart_send_string((u08 *)"cell  overruns: ");
+      uart_send_hex_dword_crlf(cell_overruns);
   }
   if(value_overflows > 0) {
       uart_send_string((u08 *)"value overflows: ");
       uart_send_hex_dword_crlf(value_overflows);
   }
 
-  read_status.cell_overruns  = sample_overruns;
+  read_status.cell_overruns  = cell_overruns;
   read_status.cell_overflows = value_overflows;
   got_index = idx_counter;
 
@@ -413,6 +343,11 @@ u32 trk_read_data_spectrum(void)
 
 // ----- read a track -----
 
+static void read_index_func(void)
+{
+  idx_flag = pit_peek();
+}
+
 u08 trk_read_sim(int verbose)
 {
   reset_status();
@@ -482,6 +417,12 @@ __inline void spiram_multi_write_dword(u32 dword)
 
 u08 trk_read_to_spiram(int verbose)
 {
+  u32 cell_overflows = 0;
+  u32 cell_overruns = 0;
+  u32 timer_overflows = 0;
+  u32 index_counter = max_index;
+  u32 my_index[MAX_INDEX];
+
   reset_status();
 
   read_status.track_num = track_num();
@@ -501,89 +442,70 @@ u08 trk_read_to_spiram(int verbose)
   pit_enable();
   pit_reset();
 
-  floppy_low_enable_index_intr(index_func);
-
-#if 0
-  // wait for an index
-  while(idx_counter < 1) {
-      // no index found!
-      if(pit_peek() > NO_IDX_COUNT) {
-          break;
-      }
-  }
-
-  // fatal: no index found
-  if(idx_counter == 0) {
-      return 0;
-  }
-
-  idx_counter = 0;
-#endif
+  floppy_low_enable_index_intr(read_index_func);
 
   // begin bulk transfer
   spi_low_mst_init();
   spiram_multi_init();
   spiram_multi_write_begin();
 
-  sample_put_pos = 0;
-  sample_get_pos = 0;
-  sample_counter = 0;
-  sample_overruns = 0;
-  u32 value_overflows = 0;
+  // wait for an index marker
+  idx_flag = 0;
+  while(!idx_flag) {}
+  idx_flag = 0;
 
-  // core loop
-  timer2_enable_intr(data_func);
   timer2_enable();
   timer2_trigger();
 
-  u32 first = 1;
+  // preload to erase
+  u32 status = timer2_get_status();
+  u32 delta = timer2_get_capture_a();
 
   // core loop for reading a track
-  while(idx_counter < max_index) {
+  while(index_counter > 0) {
 
-      // read sample buffer
-      while(1) {
+      // cell sample timer
+      status = timer2_get_status();
+
+      // valid capture
+      if(status & AT91C_TC_LDRAS) {
+          // new cell delta
+          delta = timer2_get_capture_a();
+
+          // overflow?
+          if(delta > LAST_VALUE) {
+              spiram_multi_write_byte(MARKER_OVERFLOW);
+              spiram_multi_write_byte((u08)((delta >> 8)&0xff));
+              spiram_multi_write_byte((u08)(delta & 0xff));
+              cell_overflows++;
+          } else {
+              u08 d = (u08)(delta & 0xff);
+              spiram_multi_write_byte(d);
+          }
+
           // index marker was found
           if(idx_flag) {
               spiram_multi_write_byte(MARKER_INDEX);
+              index_counter--;
+              my_index[index_counter] = idx_flag;
               idx_flag = 0;
           }
-
-          u32 pos = sample_get_pos;
-          // nothing to do
-          if(pos == sample_put_pos) {
-              break;
-          }
-
-          if(first) {
-              first = 0;
-          } else {
-            // read sample
-            u32 delta = sample_buf[pos];
-
-            // overflow?
-            if(delta > LAST_VALUE) {
-                spiram_multi_write_byte(MARKER_OVERFLOW);
-                spiram_multi_write_byte((u08)((delta >> 8)&0xff));
-                spiram_multi_write_byte((u08)(delta & 0xff));
-                value_overflows++;
-            } else {
-                u08 d = (u08)(delta & 0xff);
-                spiram_multi_write_byte(d);
-            }
-          }
-
-          // next pos
-          pos = (pos + 1) & SAMPLE_BUF_MASK;
-          sample_get_pos = pos;
+          // handle SPI transfer
+          spiram_multi_write_handle();
       }
-
-      // handle SPI transfer
-      spiram_multi_write_handle();
+      // load overrun in capture register
+      if(status & AT91C_TC_LOVRS) {
+          cell_overruns++;
+          spiram_multi_write_byte(MARKER_OVERRUN);
+      }
+      // timer overflow
+      if(status & AT91C_TC_COVFS) {
+          timer_overflows++;
+          spiram_multi_write_byte(MARKER_TIMER_OVERFLOW);
+      }
   }
 
   timer2_disable();
-  timer2_disable_intr();
   spiram_multi_write_end();
 
   floppy_low_disable_index_intr();
@@ -598,28 +520,38 @@ u08 trk_read_to_spiram(int verbose)
           uart_send_string((u08 *)"data overruns:  ");
           uart_send_hex_dword_crlf(spiram_buffer_overruns);
       }
-      if(value_overflows > 0) {
-          uart_send_string((u08 *)"value overflows: ");
-          uart_send_hex_dword_crlf(value_overflows);
+      if(cell_overflows > 0) {
+          uart_send_string((u08 *)"cell overflows: ");
+          uart_send_hex_dword_crlf(cell_overflows);
       }
-      if(sample_overruns > 0) {
-          uart_send_string((u08 *)"sample overruns: ");
-          uart_send_hex_dword_crlf(sample_overruns);
+      if(cell_overruns > 0) {
+          uart_send_string((u08 *)"cell overruns:  ");
+          uart_send_hex_dword_crlf(cell_overruns);
+      }
+      if(timer_overflows > 0) {
+          uart_send_string((u08 *)"timer overflow: ");
+          uart_send_hex_dword_crlf(timer_overflows);
       }
   }
 
   // update status
-  read_status.cell_overruns  = sample_overruns;
-  read_status.cell_overflows = value_overflows;
+  read_status.cell_overruns  = cell_overruns;
+  read_status.cell_overflows = cell_overflows;
+  read_status.timer_overflows = timer_overflows;
   read_status.data_size = spiram_total;
   read_status.data_overruns = spiram_buffer_overruns;
   read_status.data_checksum = spiram_checksum;
   read_status.full_chips = spiram_chip_no;
   got_index = idx_counter;
 
+  // copy index pos
+  for(int i=0;i<max_index;i++) {
+      index_pos[i] = my_index[max_index-1-i];
+  }
+
   if(verbose) {
       uart_send_string((u08 *)"    index pos:  ");
-      for(int i=0;i<idx_counter;i++) {
+      for(int i=0;i<max_index;i++) {
           uart_send_hex_dword_space(index_pos[i]);
       }
       uart_send_crlf();
