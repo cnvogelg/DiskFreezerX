@@ -55,8 +55,8 @@ u16  wiz_low_read_word(u16 addr)
 {
   u08 d;
   d = wiz_low_read(addr);
-  u16 result = d << 8;
+  u16 result = (u16)d << 8;
   d = wiz_low_read(addr+1);
-  result |= d;
+  result |= (u16)d;
   return result;
 }

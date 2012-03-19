@@ -90,8 +90,8 @@
 
 // ---------- RTC SRAM Usage ----------
 
-// WIZ (IP Config)
-#define RTC_MEM_OFFSET_WIZ_IP      0
-#define RTC_MEM_SIZE_WIZ_IP        18
+// WIZ CFG (IP Config)
+#define RTC_MEM_OFFSET_WIZ_CFG     0
+#define RTC_MEM_SIZE_WIZ_CFG       26
 
 #endif

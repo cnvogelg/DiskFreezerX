@@ -15,7 +15,7 @@
 #include "floppy.h"
 #include "track.h"
 #include "rtc.h"
-#include "wiz.h"
+#include "net.h"
 
 int main(void)
 {
@@ -34,21 +34,19 @@ int main(void)
 
     // do initial setup
     rtc_init();
-    wiz_init();
     memory_init();
     floppy_select_on();
     track_init();
     floppy_select_off();
+    net_init();
 
     // print current RTC
     uart_send_string((u08 *)"rtc:  ");
     uart_send_string((u08 *)rtc_get_time_str());
     uart_send_crlf();
 
-    // show wiznet ip
-    uart_send_string((u08 *)"wiz:  ");
-    uart_send_string((u08 *)wiz_get_ip_str(WIZ_IP_TYPE_SOURCE));
-    uart_send_crlf();
+    // show network info
+    net_info();
 
     while(1) {
         uart_send_string((u08 *)"> ");

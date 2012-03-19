@@ -17,6 +17,7 @@
 #include "rtc.h"
 #include "wiz_low.h"
 #include "wiz.h"
+#include "net.h"
 
 #define CMD_RES_OK              0
 #define CMD_RES_SYNTAX_ERROR    1
@@ -117,6 +118,15 @@ static u08 parse_hex_byte(u08 def)
   } else {
       return def;
   }
+}
+
+static u16 parse_hex_word(u16 def)
+{
+  if(in_size < 4)
+    return def;
+  u08 a = parse_hex_byte(0);
+  u08 b = parse_hex_byte(0);
+  return (u16)a << 8 | (u16)b;
 }
 
 // floppy commands
@@ -447,10 +457,11 @@ static void cmd_clock(void)
 static void cmd_wiznet(void)
 {
   u08 cmd, res, val;
-  u16 addr;
+  u16 addr, wval;
   u08 exit = 0;
   while((cmd = get_char()) != 0) {
      switch(cmd) {
+       // ---------- low level/debug ----------
      case 'r': // low level: read byte <addr/16>
        addr = parse_hex_byte(0) << 8 | parse_hex_byte(0);
 
@@ -474,75 +485,114 @@ static void cmd_wiznet(void)
        uart_send_hex_word_space(addr);
        uart_send_hex_byte_crlf(val);
        break;
-     case '?': // give info
-       {
-         // mac address
-         uart_send_string((u08 *)"mac: ");
-         uart_send_string((u08 *)wiz_get_mac_str());
-         uart_send_crlf();
-         // src address
-         uart_send_string((u08 *)"src: ");
-         uart_send_string((u08 *)wiz_get_ip_str(WIZ_IP_TYPE_SOURCE));
-         uart_send_crlf();
-         // sub address
-         uart_send_string((u08 *)"net: ");
-         uart_send_string((u08 *)wiz_get_ip_str(WIZ_IP_TYPE_SUBNET_MASK));
-         uart_send_crlf();
-         // gateway address
-         uart_send_string((u08 *)"gw:  ");
-         uart_send_string((u08 *)wiz_get_ip_str(WIZ_IP_TYPE_GATEWAY));
-         uart_send_crlf();
-       }
+     case 'R': // low level: read word <addr/16>
+       addr = parse_hex_byte(0) << 8 | parse_hex_byte(0);
+
+       wiz_low_begin();
+       res = wiz_low_read_word(addr);
+       wiz_low_end();
+
+       set_result(res);
+       uart_send_hex_word_space(addr);
+       uart_send_hex_word_crlf(res);
        break;
-     case 'm': // set mac 6*<8>
+     case 'W': // low level: write byte <addr/16><val/8>
+       addr = parse_hex_byte(0) << 8 | parse_hex_byte(0);
+       wval = parse_hex_byte(0) << 8 | parse_hex_byte(0);
+
+       wiz_low_begin();
+       wiz_low_write_word(addr,wval);
+       wiz_low_end();
+
+       set_result(wval);
+       uart_send_hex_word_space(addr);
+       uart_send_hex_word_crlf(wval);
+       break;
+
+       // ---------- config ----------
+     case '?':
+       net_info();
+       break;
+     case 'm': // set mac addr 6*<8>
        {
-         u08 mac[6];
+         wiz_cfg_t *wc = wiz_get_cfg();
          for(int i=0;i<6;i++) {
-             mac[i] = parse_hex_byte(0);
+             wc->mac_addr[i] = parse_hex_byte(0);
          }
-         wiz_set_mac(mac);
+         wiz_realize_cfg();
        }
        break;
-     case 's': // set src 4*<8>
+     case 's': // set src ip 4*<8>
        {
-         u08 ip[4];
+         wiz_cfg_t *wc = wiz_get_cfg();
          for(int i=0;i<4;i++) {
-             ip[i] = parse_hex_byte(0);
+             wc->src_ip[i] = parse_hex_byte(0);
          }
-         wiz_set_ip(WIZ_IP_TYPE_SOURCE,ip);
+         wiz_realize_cfg();
+       }
+       break;
+     case 't': // set tgt ip 4*<8>
+       {
+         wiz_cfg_t *wc = wiz_get_cfg();
+         for(int i=0;i<4;i++) {
+             wc->tgt_ip[i] = parse_hex_byte(0);
+         }
+         wiz_realize_cfg();
        }
        break;
      case 'n': // set netmask 4*<8>
        {
-         u08 ip[4];
+         wiz_cfg_t *wc = wiz_get_cfg();
          for(int i=0;i<4;i++) {
-             ip[i] = parse_hex_byte(0);
+             wc->net_msk[i] = parse_hex_byte(0);
          }
-         wiz_set_ip(WIZ_IP_TYPE_SUBNET_MASK,ip);
+         wiz_realize_cfg();
        }
        break;
      case 'g': // set gateway 4*<8>
        {
-         u08 ip[4];
+         wiz_cfg_t *wc = wiz_get_cfg();
          for(int i=0;i<4;i++) {
-             ip[i] = parse_hex_byte(0);
+             wc->gw_ip[i] = parse_hex_byte(0);
          }
-         wiz_set_ip(WIZ_IP_TYPE_GATEWAY,ip);
+         wiz_realize_cfg();
        }
        break;
+     case 'o': // src port
+       {
+         wiz_cfg_t *wc = wiz_get_cfg();
+         wc->src_port = parse_hex_word(1234);
+       }
+       break;
+     case 'p': // tgt port
+       {
+         wiz_cfg_t *wc = wiz_get_cfg();
+         wc->tgt_port = parse_hex_word(6800);
+       }
+       break;
+
+       // ----- load/save config -----
      case 'S': // save to sram
-       wiz_save_to_sram();
+       wiz_save_cfg();
        break;
      case 'L': // load from sram
-       wiz_load_from_sram();
+       wiz_load_cfg();
+       wiz_realize_cfg();
        break;
+
      case 'c': // connect test
        {
-         u16 dst_port = 4711;
-         u16 src_port = 0x6502;
-         u08 dst_ip[4] = { 192,168,2,47 };
-         int result = wiz_begin_tcp_client(src_port, dst_ip, dst_port);
+         int result = wiz_begin_tcp_client();
+         if(result == 0) {
+             uart_send_string((u08 *)"connected");
+             const char *hw = "hello world!\r\n";
+             wiz_write_tcp((u08 *)hw, 14);
+             uart_send_string((u08 *)"disconnect");
+             wiz_end_tcp_client();
+         }
+
          set_result(result);
+
        }
        break;
      default:
@@ -639,8 +689,8 @@ void cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
         cmd_clock();
         break;
 
-      // w) wiznet commands
-      case 'w':
+      // n) wiznet commands
+      case 'n':
         cmd_wiznet();
         break;
 

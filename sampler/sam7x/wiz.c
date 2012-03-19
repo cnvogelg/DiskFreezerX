@@ -4,6 +4,8 @@
 #include "rtc.h"
 #include "delay.h"
 
+#include "uartutil.h"
+
 #define WIZ_MR          0x0000
 #define WIZ_GAR         0x0001
 #define WIZ_SUBR        0x0005
@@ -92,24 +94,39 @@
 #define WIZ_TX_BASE             0x4000
 #define WIZ_RX_BASE             0x6000
 
+#define WIZ_IP_TYPE_GATEWAY     0x01
+#define WIZ_IP_TYPE_SUBNET_MASK 0x05
+#define WIZ_IP_TYPE_SOURCE      0x0f
+
+// configuration data
+static wiz_cfg_t wiz_cfg;
+
 void wiz_init(void)
 {
   wiz_low_init();
 
-  // setup common
   wiz_low_begin();
+
+  // reset
+  wiz_low_write(WIZ_MR, 0x80); // set reset bit
+  for(int i=0;i<1000;i++) {
+    if((wiz_low_read(WIZ_MR) & 0x80) == 00) {
+        break;
+    }
+    delay_ms(1);
+  }
+
   wiz_low_write(WIZ_MR, 0);
   wiz_low_write(WIZ_IMR, 0);
   wiz_low_write_word(WIZ_RTR, 0xfa0); // 400ms retry time
   wiz_low_write(WIZ_RCR, 5); // retry count
   wiz_low_write(WIZ_RMSR, 0x55); // 2k each socket rx mem
   wiz_low_write(WIZ_TMSR, 0x55); // 2k each socket tx mem
-  wiz_low_end();
 
-  wiz_load_from_sram();
+  wiz_low_end();
 }
 
-void wiz_set_ip(int type, u08 ip[4])
+static void wiz_set_ip(int type, u08 ip[4])
 {
   wiz_low_begin();
   for(int i=0;i<4;i++) {
@@ -118,7 +135,7 @@ void wiz_set_ip(int type, u08 ip[4])
   wiz_low_end();
 }
 
-void wiz_set_mac(u08 ip[6])
+static void wiz_set_mac(u08 ip[6])
 {
   wiz_low_begin();
   for(int i=0;i<6;i++) {
@@ -127,31 +144,24 @@ void wiz_set_mac(u08 ip[6])
   wiz_low_end();
 }
 
-void wiz_get_ip(int type, u08 ip[4])
+wiz_cfg_t *wiz_get_cfg(void)
 {
-  wiz_low_begin();
-  for(int i=0;i<4;i++) {
-      ip[i] = wiz_low_read(type+i);
-  }
-  wiz_low_end();
+  return &wiz_cfg;
 }
 
-void wiz_get_mac(u08 mac[6])
+void wiz_realize_cfg(void)
 {
-  wiz_low_begin();
-  for(int i=0;i<6;i++) {
-      mac[i] = wiz_low_read(WIZ_SHAR+i);
-  }
-  wiz_low_end();
+  wiz_set_ip(WIZ_IP_TYPE_GATEWAY, wiz_cfg.gw_ip);
+  wiz_set_ip(WIZ_IP_TYPE_SUBNET_MASK, wiz_cfg.net_msk);
+  wiz_set_ip(WIZ_IP_TYPE_SOURCE, wiz_cfg.src_ip);
+  wiz_set_mac(wiz_cfg.mac_addr);
 }
 
 static char *ip_str = "00.00.00.00";
 static char *mac_str = "00:00:00:00:00:00";
 
-char *wiz_get_ip_str(int type)
+char *wiz_get_ip_str(const u08 ip[4])
 {
-  u08 ip[4];
-  wiz_get_ip(type, ip);
   int pos = 0;
   for(int i=0;i<4;i++) {
       byte_to_hex(ip[i],(u08 *)(ip_str+pos));
@@ -160,10 +170,8 @@ char *wiz_get_ip_str(int type)
   return ip_str;
 }
 
-char *wiz_get_mac_str(void)
+char *wiz_get_mac_str(const u08 mac[6])
 {
-  u08 mac[6];
-  wiz_get_mac(mac);
   int pos = 0;
   for(int i=0;i<6;i++) {
       byte_to_hex(mac[i],(u08 *)(mac_str+pos));
@@ -172,37 +180,16 @@ char *wiz_get_mac_str(void)
   return mac_str;
 }
 
-void wiz_load_from_sram(void)
+void wiz_load_cfg(void)
 {
-  // write gw addr, subnet mask, mac, source ip: 4 * ip + 1 * mac = 18
-  u08 data[18];
-  rtc_read_sram(RTC_MEM_OFFSET_WIZ_IP,data,RTC_MEM_SIZE_WIZ_IP);
-
-  // write to wiznet
-  u16 addr = 1;
-  wiz_low_begin();
-  for(int i=0;i<18;i++) {
-      wiz_low_write(addr, data[i]);
-      addr++;
-  }
-  wiz_low_end();
+  // load from RTC SRAM
+  rtc_read_sram(RTC_MEM_OFFSET_WIZ_CFG,(u08 *)&wiz_cfg,RTC_MEM_SIZE_WIZ_CFG);
 }
 
-void wiz_save_to_sram(void)
+void wiz_save_cfg(void)
 {
-  u08 data[18];
-
-  // read from wiznet
-  u16 addr = 1;
-  wiz_low_begin();
-  for(int i=0;i<18;i++) {
-      data[i] = wiz_low_read(addr);
-      addr++;
-  }
-  wiz_low_end();
-
-  // save to sram
-  rtc_write_sram(RTC_MEM_OFFSET_WIZ_IP, data, RTC_MEM_SIZE_WIZ_IP);
+  // save to RTC SRAM
+  rtc_write_sram(RTC_MEM_OFFSET_WIZ_CFG, (u08 *)&wiz_cfg, RTC_MEM_SIZE_WIZ_CFG);
 }
 
 static int wiz_tcp_socket_init(u16 src_port)
@@ -228,20 +215,20 @@ static int wiz_tcp_socket_init(u16 src_port)
   return 1;
 }
 
-int wiz_begin_tcp_client(u16 src_port, u08 dst_ip[4], u16 dst_port)
+int wiz_begin_tcp_client(void)
 {
   wiz_low_begin();
 
-  if(wiz_tcp_socket_init(src_port)) {
+  if(wiz_tcp_socket_init(wiz_cfg.src_port)) {
       wiz_low_end();
       return 1;
   }
 
   // set destination
   for(int i=0;i<4;i++) {
-      wiz_low_write(WIZ_S0(WIZ_Sx_DIPR)+i,dst_ip[i]);
+      wiz_low_write(WIZ_S0(WIZ_Sx_DIPR)+i,wiz_cfg.tgt_ip[i]);
   }
-  wiz_low_write_word(WIZ_S0(WIZ_Sx_DPORT),dst_port);
+  wiz_low_write_word(WIZ_S0(WIZ_Sx_DPORT),wiz_cfg.tgt_port);
 
   // connect
   wiz_low_write(WIZ_S0(WIZ_Sx_CR), WIZ_Sx_CR_CONNECT);
@@ -262,7 +249,9 @@ int wiz_begin_tcp_client(u16 src_port, u08 dst_ip[4], u16 dst_port)
 int wiz_end_tcp_client(void)
 {
   // disconnect
+  wiz_low_begin();
   wiz_low_write(WIZ_S0(WIZ_Sx_CR), WIZ_Sx_CR_DISCON);
+  wiz_low_end();
   return 0;
 }
 
@@ -288,12 +277,55 @@ static int wiz_wait_tx_free(u16 expect)
   return 2;
 }
 
-int wiz_write_tcp(u08 *data, u16 size)
+// default setup
+#define WIZ_S0_TX_BASE          0x4000
+#define WIZ_S0_TX_MASK          0x07ff
+#define WIZ_S0_TX_SIZE          (WIZ_S0_TX_MASK+1)
+
+int wiz_write_tcp(const u08 *data, u32 size)
 {
-  int error = wiz_wait_tx_free(size);
-  if(error) {
-      return error;
+  wiz_low_begin();
+
+  //u32 offset = 0;
+  int result = 0;
+  u32 offset = 0;
+  while(size > 0) {
+
+    u16 tx_size;
+    if(size > WIZ_S0_TX_SIZE) {
+        tx_size = WIZ_S0_TX_SIZE;
+    } else {
+        tx_size = (u16)size;
+    }
+
+    // first wait until free space is here
+    int error = wiz_wait_tx_free(tx_size);
+    if(error) {
+        result = error;
+        break;
+    }
+
+    // get current wr pos
+    u16 wr_pos = wiz_low_read_word(WIZ_S0(WIZ_Sx_TX_WR));
+
+    // write data with wrapping into buffer
+    u16 addr = wr_pos + WIZ_S0_TX_BASE;
+    for(u16 i = 0;i<tx_size; i++) {
+        wiz_low_write(addr++, data[offset++]);
+        if(addr == (WIZ_S0_TX_BASE + WIZ_S0_TX_SIZE)) {
+            addr = WIZ_S0_TX_BASE;
+        }
+    }
+
+    // set new wr pos
+    wiz_low_write_word(WIZ_S0(WIZ_Sx_TX_WR), wr_pos + tx_size);
+
+    // set COMMAND SEND
+    wiz_low_write(WIZ_S0(WIZ_Sx_CR), WIZ_Sx_CR_SEND);
+
+    size -= tx_size;
   }
 
-  return 0;
+  wiz_low_end();
+  return result;
 }
