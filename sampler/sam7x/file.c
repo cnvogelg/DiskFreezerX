@@ -8,6 +8,7 @@
 #include "uartutil.h"
 #include "track.h"
 #include "util.h"
+#include "delay.h"
 
 static FATFS fatfs;
 
@@ -338,4 +339,30 @@ u08 file_make_disk_dir(u32 num)
 
   return res & 0xff;
 }
+
+// ----- Test Func -----
+
+static volatile u32 count = 0;
+
+static void test_func(void)
+{
+  count ++;
+}
+
+void file_test(void)
+{
+  count = 0;
+  pit_irq_start(test_func, led_proc);
+
+  for(int i=0;i<10;i++) {
+      uart_send_hex_byte_crlf(i);
+      delay_ms(500);
+  }
+
+  pit_irq_stop();
+
+  uart_send_string((u08 *)"ticks: ");
+  uart_send_hex_dword_crlf(count);
+}
+
 

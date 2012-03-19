@@ -301,6 +301,9 @@ static void cmd_io(void)
          set_result(res);
        }
        break;
+     case 't': // test file
+       file_test();
+       break;
      default:
        set_result(CMD_RES_SYNTAX_ERROR);
      case '.':
