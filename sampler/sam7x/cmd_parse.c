@@ -595,6 +595,9 @@ static void cmd_wiznet(void)
 
        }
        break;
+     case 'i':
+       net_init();
+       break;
      default:
        set_result(CMD_RES_SYNTAX_ERROR);
      case '.':

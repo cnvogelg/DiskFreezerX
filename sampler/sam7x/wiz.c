@@ -309,7 +309,7 @@ int wiz_write_tcp(const u08 *data, u32 size)
     u16 wr_pos = wiz_low_read_word(WIZ_S0(WIZ_Sx_TX_WR));
 
     // write data with wrapping into buffer
-    u16 addr = wr_pos + WIZ_S0_TX_BASE;
+    u16 addr = (wr_pos & WIZ_S0_TX_MASK) + WIZ_S0_TX_BASE;
     for(u16 i = 0;i<tx_size; i++) {
         wiz_low_write(addr++, data[offset++]);
         if(addr == (WIZ_S0_TX_BASE + WIZ_S0_TX_SIZE)) {
