@@ -50,11 +50,11 @@ static int file_writer(const u08 *buffer, u32 size)
   }
 }
 
-u08 file_save(u08 track, int verbose)
+u08 file_save_buffer(int verbose)
 {
   // compose name: dir_name/trk_name
   u08 *name = full_name;
-  u08 *trk_ptr = track_name(track);
+  u08 *trk_ptr = track_name(buffer_get_track());
   u08 *dir_ptr = dir_name;
   while((*(name++) = *(dir_ptr++)));
   name--;

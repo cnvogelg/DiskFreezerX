@@ -3,6 +3,6 @@
 
 #include "board.h"
 
-u08 disk_read_all(u08 begin, u08 end, int do_save);
+u08 disk_read_all(u08 begin, u08 end, int do_save, int verbose);
 
 #endif

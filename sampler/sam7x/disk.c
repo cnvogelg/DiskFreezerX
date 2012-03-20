@@ -6,23 +6,25 @@
 #include "track.h"
 #include "button.h"
 #include "buffer.h"
+#include "status.h"
+#include "index.h"
 
-u08 disk_read_all(u08 begin, u08 end, int do_save)
+u08 disk_read_all(u08 begin, u08 end, int do_save, int verbose)
 {
-  u08 status = 0;
+  u08 error = 0;
   u32 disk_no = 0;
 
   if(do_save) {
     // make directory for track data
     disk_no = file_find_disk_dir();
-    status = file_make_disk_dir(disk_no);
-    if(status) {
-        return status;
+    error = file_make_disk_dir(disk_no);
+    if(error) {
+        return error;
     }
-  }
 
-  uart_send_string((u08 *)"disk read: ");
-  uart_send_hex_dword_crlf(disk_no);
+    uart_send_string((u08 *)"ID: ");
+    uart_send_hex_dword_crlf(disk_no);
+  }
 
   u08 en = floppy_select_on();
   u08 mot = floppy_motor_on();
@@ -30,35 +32,34 @@ u08 disk_read_all(u08 begin, u08 end, int do_save)
   track_zero();
   track_next(begin);
   for(u08 t=begin;t<end;t++) {
-      uart_send_string(track_name(t));
-      uart_send_string((u08 *)": ");
 
-      u08 st = trk_read_to_spiram(0);
-      uart_send_hex_byte_space(st);
-      if(st != 0) {
-          uart_send_crlf();
+      uart_send_string((u08 *)"TR: ");
+      uart_send_hex_byte_space(t);
+
+      // read track to SPI memory
+      error = trk_read_to_spiram(0);
+      uart_send_hex_byte_crlf(error);
+      if(error) {
           break;
       }
 
-      // give some sampling info
-      read_status_t *rs = trk_read_get_status();
-      uart_send_hex_dword_space(rs->cell_overruns);
-      uart_send_hex_dword_space(rs->cell_overflows);
-      uart_send_hex_dword_space(rs->timer_overflows);
-      uart_send_hex_dword_space(rs->data_size);
-
-      u32 size = rs->data_size;
-      u32 check = rs->data_checksum;
-
+      // save track to file
       if(do_save) {
-        buffer_set(t,size,check);
-        st = file_save(t,0);
-        uart_send_hex_byte_crlf(st);
-        if(st != 0) {
+        uart_send_string((u08 *)"FS: ");
+        uart_send_hex_byte_space(t);
+
+        error = file_save_buffer(0);
+        uart_send_hex_byte_crlf(error);
+        if(error) {
             break;
         }
-      } else {
-        uart_send_crlf();
+      }
+
+      // give some infos
+      if(verbose) {
+          buffer_info();
+          index_info();
+          status_info();
       }
 
       // abort if a button was pressed
@@ -72,5 +73,5 @@ u08 disk_read_all(u08 begin, u08 end, int do_save)
 
   if(mot) floppy_motor_off();
   if(en) floppy_select_off();
-  return status;
+  return error;
 }

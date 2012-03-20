@@ -288,13 +288,8 @@ static void cmd_io(void)
        break;
      case 's':
        {
-         read_status_t *rs = trk_read_get_status();
-         u32 size = rs->data_size;
-         u32 check = rs->data_checksum;
-         u08 t = rs->track_num;
-         buffer_set(t, size, check);
-         if(size > 0) {
-             res = file_save(t,parse_hex_byte(1));
+         if(buffer_get_size()>0) {
+             res = file_save_buffer(1);
              set_result(res);
          } else {
              set_result(0);
@@ -380,10 +375,44 @@ static void cmd_sampler(void)
           u08 sel = floppy_select_on();
           u08 mot = floppy_motor_on();
           track_init();
-          res = trk_read_data_spectrum();
+          res = trk_read_data_spectrum(parse_hex_byte(0));
           if(mot) floppy_motor_off();
           if(sel) floppy_select_off();
           set_result(res);
+       }
+       break;
+     default:
+       set_result(CMD_RES_SYNTAX_ERROR);
+     case '.':
+       exit = 1;
+       break;
+     }
+     if(exit) break;
+   }
+}
+
+static void cmd_read(void)
+{
+  u08 cmd, res;
+  u08 exit = 0;
+  while((cmd = get_char()) != 0) {
+     switch(cmd) {
+     case 'm': // read disk to memory only
+       {
+         u08 start_trk = parse_hex_byte(0);
+         u08 end_trk = parse_hex_byte(160);
+         u08 verbose = parse_hex_byte(0);
+         res = disk_read_all(start_trk,end_trk,0,verbose);
+         set_result(res);
+       }
+       break;
+     case 'f': // read disk to file
+       {
+         u08 start_trk = parse_hex_byte(0);
+         u08 end_trk = parse_hex_byte(160);
+         u08 verbose = parse_hex_byte(0);
+         res = disk_read_all(start_trk,end_trk,1,verbose);
+         set_result(res);
        }
        break;
      default:
@@ -654,7 +683,6 @@ void cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
   out = res_buf;
   out_size = 0;
 
-  u08 res;
   while(in_size > 0) {
       u08 cmd = get_char();
 
@@ -702,13 +730,7 @@ void cmd_parse(u08 len, const u08 *buf, u08 *result_len, u08 *res_buf)
       // ----- TASKS -----
       // R) read disk
       case 'R':
-        res = disk_read_all(parse_hex_byte(0),parse_hex_byte(160),1);
-        set_result(res);
-        break;
-      // F) fake read disk
-      case 'F':
-        res = disk_read_all(parse_hex_byte(0),parse_hex_byte(160),0);
-        set_result(res);
+        cmd_read();
         break;
       }
   }
