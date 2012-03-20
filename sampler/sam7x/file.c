@@ -4,11 +4,11 @@
 #include "diskio.h"
 #include "pit.h"
 #include "led.h"
-#include "spiram.h"
 #include "uartutil.h"
 #include "track.h"
 #include "util.h"
 #include "delay.h"
+#include "buffer.h"
 
 static FATFS fatfs;
 
@@ -37,10 +37,21 @@ DWORD get_fattime(void)
                         (((DWORD)          0) >>  1);  // Sec
 }
 
-u08 file_save(u08 track, u32 size, u32 check, int verbose)
-{
-  u32 checksum = 0;
+static FIL fh;
 
+static int file_writer(const u08 *buffer, u32 size)
+{
+  UINT written;
+  FRESULT result = f_write(&fh, buffer, size, &written);
+  if(result != FR_OK) {
+      return 0x10;
+  } else {
+      return 0;
+  }
+}
+
+u08 file_save(u08 track, int verbose)
+{
   // compose name: dir_name/trk_name
   u08 *name = full_name;
   u08 *trk_ptr = track_name(track);
@@ -55,9 +66,6 @@ u08 file_save(u08 track, u32 size, u32 check, int verbose)
       uart_send_string(full_name);
       uart_send_crlf();
   }
-
-  // perform SPI reset to be sage
-  spi_low_mst_init();
 
   // enable tick irq
   pit_irq_start(disk_timerproc, led_proc);
@@ -76,85 +84,18 @@ u08 file_save(u08 track, u32 size, u32 check, int verbose)
       return 0x11;
     }
 
-  FIL fh;
+  // open track file
+  int errors = 0;
   FRESULT result = f_open(&fh, (char *)full_name, FA_WRITE | FA_CREATE_ALWAYS);
   if(result != FR_OK) {
       uart_send_string((u08 *)"error opening file: ");
       uart_send_hex_dword_crlf(result);
+      errors = 0x12;
   } else {
-      // work buffer for data transfer is shared with spiram's buffers
-      u08 *data = &spiram_buffer[0][0];
+      // write buffer to file
+      errors = buffer_write(file_writer);
 
-      // setup SPIRAM
-      if(spiram_multi_init()) {
-          uart_send_string((u08 *)"spiram init failed");
-          uart_send_crlf();
-      }
-
-      u32 bank = 0;
-      u32 addr = 0;
-      u32 chip_no = 0;
-      spi_low_set_ram_addr(0);
-      u32 total = 0;
-      while(size > 0) {
-
-          // read block from SPIRAM
-          spi_low_set_channel(SPI_RAM_CHANNEL);
-          if(spiram_set_mode(SPIRAM_MODE_SEQ)!=SPIRAM_MODE_SEQ) {
-              uart_send_string((u08 *)"set mode error!");
-              uart_send_crlf();
-          }
-          spiram_read_begin(addr);
-          spi_read_dma(data, SPIRAM_BUFFER_SIZE);
-          spiram_end();
-
-          u32 blk_check = 0;
-          for(int i=0;i<SPIRAM_BUFFER_SIZE;i++) {
-              blk_check += data[i];
-          }
-
-          u32 blk_size = (size > SPIRAM_BUFFER_SIZE) ? SPIRAM_BUFFER_SIZE : size;
-          if((bank == (SPIRAM_NUM_BANKS - 1)) && (blk_size > (SPIRAM_BUFFER_SIZE-3))) {
-              blk_size = SPIRAM_BUFFER_SIZE - 3;
-          }
-          for(int i=0;i<blk_size;i++) {
-              checksum += data[i];
-          }
-          total += blk_size;
-
-          // write to SD
-          UINT written;
-          result = f_write(&fh,data,blk_size,&written);
-          if(result != FR_OK) {
-              uart_send_string((u08 *)"write error!");
-              uart_send_crlf();
-          }
-
-          size -= blk_size;
-          bank ++;
-          addr += SPIRAM_BUFFER_SIZE;
-          if(bank == SPIRAM_NUM_BANKS) {
-              bank = 0;
-              addr = 0;
-              chip_no ++;
-
-              spi_low_set_ram_addr(chip_no);
-
-#if 0
-              uart_send_hex_dword_crlf(blk_check);
-#endif
-          }
-      }
-
-      if(verbose) {
-        uart_send_string((u08 *)"read checksum:  ");
-        uart_send_hex_dword_crlf(check);
-        uart_send_string((u08 *)"save checksum:  ");
-        uart_send_hex_dword_crlf(checksum);
-        uart_send_string((u08 *)"total size:     ");
-        uart_send_hex_dword_crlf(total);
-      }
-
+      // close track file
       f_close(&fh);
   }
 
@@ -163,7 +104,13 @@ u08 file_save(u08 track, u32 size, u32 check, int verbose)
   disk_ioctl(0, CTRL_POWER, 0); //power off
 
   pit_irq_stop();
-  return (checksum != check);
+
+  if(verbose) {
+      uart_send_string((u08 *)"buffer write: ");
+      uart_send_hex_dword_crlf(errors);
+  }
+
+  return errors;
 }
 
 void file_dir(void)

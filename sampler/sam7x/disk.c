@@ -5,6 +5,7 @@
 #include "uartutil.h"
 #include "track.h"
 #include "button.h"
+#include "buffer.h"
 
 u08 disk_read_all(u08 begin, u08 end, int do_save)
 {
@@ -50,7 +51,8 @@ u08 disk_read_all(u08 begin, u08 end, int do_save)
       u32 check = rs->data_checksum;
 
       if(do_save) {
-        st = file_save(t,size,check,0);
+        buffer_set(t,size,check);
+        st = file_save(t,0);
         uart_send_hex_byte_crlf(st);
         if(st != 0) {
             break;

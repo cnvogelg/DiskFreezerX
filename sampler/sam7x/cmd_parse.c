@@ -18,6 +18,7 @@
 #include "wiz_low.h"
 #include "wiz.h"
 #include "net.h"
+#include "buffer.h"
 
 #define CMD_RES_OK              0
 #define CMD_RES_SYNTAX_ERROR    1
@@ -291,8 +292,9 @@ static void cmd_io(void)
          u32 size = rs->data_size;
          u32 check = rs->data_checksum;
          u08 t = rs->track_num;
+         buffer_set(t, size, check);
          if(size > 0) {
-             res = file_save(t,size,check,parse_hex_byte(1));
+             res = file_save(t,parse_hex_byte(1));
              set_result(res);
          } else {
              set_result(0);
