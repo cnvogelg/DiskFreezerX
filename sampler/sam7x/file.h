@@ -2,11 +2,12 @@
 #define FILE_H
 
 #include "board.h"
+#include "error.h"
 
-void file_dir(void);
-u08  file_save_buffer(int verbose);
-u32  file_find_disk_dir(void);
-u08  file_make_disk_dir(u32 num);
+error_t file_dir(void);
+error_t file_save_buffer(int verbose);
+error_t file_find_disk_dir(u32 *num);
+error_t file_make_disk_dir(u32 num);
 
 void file_test(void);
 

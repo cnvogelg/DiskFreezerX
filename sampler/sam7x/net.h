@@ -10,4 +10,6 @@
 extern void net_init(void);
 extern void net_info(void);
 
+extern u08 net_send_buffer(void);
+
 #endif

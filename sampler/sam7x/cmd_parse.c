@@ -19,9 +19,7 @@
 #include "wiz.h"
 #include "net.h"
 #include "buffer.h"
-
-#define CMD_RES_OK              0
-#define CMD_RES_SYNTAX_ERROR    1
+#include "error.h"
 
 static const u08 *in;
 static u08 *out;
@@ -139,19 +137,19 @@ static void cmd_floppy(void)
     switch(cmd) {
     case 'e':
       floppy_select_on();
-      set_result(CMD_RES_OK);
+      set_result(STATUS_OK);
       break;
     case 'd':
       floppy_select_off();
-      set_result(CMD_RES_OK);
+      set_result(STATUS_OK);
       break;
     case 'o':
       floppy_motor_on();
-      set_result(CMD_RES_OK);
+      set_result(STATUS_OK);
       break;
     case 'f':
       floppy_motor_off();
-      set_result(CMD_RES_OK);
+      set_result(STATUS_OK);
       break;
     case 'w': // write protected?
       {
@@ -167,7 +165,7 @@ static void cmd_floppy(void)
       set_result(floppy_status());
       break;
     default:
-      set_result(CMD_RES_SYNTAX_ERROR);
+      set_result(ERROR_SYNTAX);
     case '.':
       exit = 1;
       break;
@@ -188,7 +186,7 @@ static void cmd_track(void)
     switch(cmd) {
     case 'i':
       track_init();
-      set_result(CMD_RES_OK);
+      set_result(STATUS_OK);
       break;
     case 'c':
       res = track_check_max();
@@ -196,7 +194,7 @@ static void cmd_track(void)
       break;
     case 'z':
       track_zero();
-      set_result(CMD_RES_OK);
+      set_result(STATUS_OK);
       break;
     case '?':
       set_result(track_num());
@@ -234,7 +232,7 @@ static void cmd_track(void)
       set_result(track_get_max());
       break;
     default:
-      set_result(CMD_RES_SYNTAX_ERROR);
+      set_result(ERROR_SYNTAX);
     case '.':
       exit = 1;
       break;
@@ -264,10 +262,10 @@ static void cmd_memory(void)
        break;
      case 'd':
        memory_dump(parse_hex_byte(0),parse_hex_byte(0));
-       set_result(CMD_RES_OK);
+       set_result(STATUS_OK);
        break;
      default:
-       set_result(CMD_RES_SYNTAX_ERROR);
+       set_result(ERROR_SYNTAX);
      case '.':
        exit = 1;
        break;
@@ -298,8 +296,10 @@ static void cmd_io(void)
        break;
      case 'f': // find next disk name dir
        {
-         u32 num = file_find_disk_dir();
-         set_result(num & 0xff);
+         u32 num = 0;
+         res = file_find_disk_dir(&num);
+         uart_send_hex_dword_crlf(num);
+         set_result(res);
        }
        break;
      case 'm': // make disk dir
@@ -312,7 +312,7 @@ static void cmd_io(void)
        file_test();
        break;
      default:
-       set_result(CMD_RES_SYNTAX_ERROR);
+       set_result(ERROR_SYNTAX);
      case '.':
        exit = 1;
        break;
@@ -382,7 +382,7 @@ static void cmd_sampler(void)
        }
        break;
      default:
-       set_result(CMD_RES_SYNTAX_ERROR);
+       set_result(ERROR_SYNTAX);
      case '.':
        exit = 1;
        break;
@@ -416,7 +416,7 @@ static void cmd_read(void)
        }
        break;
      default:
-       set_result(CMD_RES_SYNTAX_ERROR);
+       set_result(ERROR_SYNTAX);
      case '.':
        exit = 1;
        break;
@@ -475,7 +475,7 @@ static void cmd_clock(void)
        rtc_set_entry(RTC_INDEX_SECOND, value);
        break;
      default:
-       set_result(CMD_RES_SYNTAX_ERROR);
+       set_result(ERROR_SYNTAX);
      case '.':
        exit = 1;
        break;
@@ -630,7 +630,7 @@ static void cmd_wiznet(void)
        net_init();
        break;
      default:
-       set_result(CMD_RES_SYNTAX_ERROR);
+       set_result(ERROR_SYNTAX);
      case '.':
        exit = 1;
        break;
@@ -667,7 +667,7 @@ static void cmd_diagnose(void)
        }
        break;
      default:
-       set_result(CMD_RES_SYNTAX_ERROR);
+       set_result(ERROR_SYNTAX);
      case '.':
        exit = 1;
        break;

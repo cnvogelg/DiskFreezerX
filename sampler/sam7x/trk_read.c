@@ -12,6 +12,7 @@
 #include "index.h"
 #include "spectrum.h"
 #include "buffer.h"
+#include "error.h"
 
 // PIT timeout if no index was found
 #define NO_IDX_COUNT 0x500000
@@ -29,7 +30,7 @@ static void index_func(void)
   idx_flag=1;
 }
 
-u32 trk_read_count_index(void)
+error_t trk_read_count_index(void)
 {
   status_reset();
   index_reset();
@@ -56,14 +57,21 @@ u32 trk_read_count_index(void)
 
   // show results
   index_info();
-  return index_get_total();
+
+  if(idx_counter == 0) {
+      return ERROR_SAMPLER_NO_INDEX;
+  } else {
+      return STATUS_OK;
+  }
 }
 
 // ----- count data -----
 // count the number of bitcells on a track
 
-u32 trk_read_count_data(void)
+error_t trk_read_count_data(void)
 {
+  error_t result = STATUS_OK;
+
   status_reset();
   index_reset();
 
@@ -111,8 +119,13 @@ u32 trk_read_count_data(void)
     // update status
     status.samples = samples;
     status.cell_overruns = cell_overruns;
+    if(cell_overruns > 0) {
+        result = ERROR_SAMPLER_CELL_OVERRUN;
+    }
 
     timer2_disable();
+  } else {
+    result = ERROR_SAMPLER_NO_INDEX;
   }
 
   // cleanup HW
@@ -122,15 +135,17 @@ u32 trk_read_count_data(void)
   // show results
   index_info();
   status_info();
-  return index_get_total();
+  return result;
 }
 
 // ----- data spectrum -----
 
 static u16 table[256];
 
-u32 trk_read_data_spectrum(int verbose)
+error_t trk_read_data_spectrum(int verbose)
 {
+  error_t result = STATUS_OK;
+
   // clear table
   for(u16 i=0;i<256;i++) {
       table[i] = 0;
@@ -191,6 +206,12 @@ u32 trk_read_data_spectrum(int verbose)
     status.samples = samples;
     status.cell_overruns = cell_overruns;
     status.word_values = word_values;
+    if(cell_overruns > 0) {
+        result = ERROR_SAMPLER_CELL_OVERRUN;
+    }
+
+  } else {
+    result = ERROR_SAMPLER_NO_INDEX;
   }
 
   // cleanup HW
@@ -201,12 +222,12 @@ u32 trk_read_data_spectrum(int verbose)
   index_info();
   status_info();
   spectrum_info(table, verbose);
-  return index_get_total();
+  return result;
 }
 
 // ----- read a track -----
 
-u08 trk_read_sim(int verbose)
+error_t trk_read_sim(int verbose)
 {
   status_reset();
   index_reset();
@@ -225,6 +246,7 @@ u08 trk_read_sim(int verbose)
   // core loop for reading a track
   u08 ch = 0;
   u32 num = SPIRAM_TOTAL_SIZE - (SPIRAM_NUM_CHIPS * 3);
+  status.samples = num;
   while(num > 0) {
 
       spiram_multi_write_byte(ch++);
@@ -242,7 +264,12 @@ u08 trk_read_sim(int verbose)
       buffer_info();
   }
 
-  return trk_check_spiram(verbose);
+  status.data_overruns = spiram_buffer_overruns;
+  if(spiram_buffer_overruns > 0) {
+      return ERROR_SAMPLER_DATA_OVERRUN;
+  } else {
+      return STATUS_OK;
+  }
 }
 
 // ---------- main track sampler ----------------------------------------------
@@ -267,7 +294,7 @@ static void read_index_func(void)
   idx_flag = pit_peek();
 }
 
-u08 trk_read_to_spiram(int verbose)
+error_t trk_read_to_spiram(int verbose)
 {
   u32 byte_values = 0;
   u32 word_values = 0;
@@ -278,6 +305,7 @@ u08 trk_read_to_spiram(int verbose)
 
   u08 code[16];
   u32 code_size = 0;
+  u32 found_index = 1;
 
   status_reset();
   index_reset();
@@ -288,6 +316,11 @@ u08 trk_read_to_spiram(int verbose)
       uart_send_hex_byte_crlf(track_num());
   }
 
+  // begin bulk transfer
+  spi_low_mst_init();
+  spiram_multi_init();
+  spiram_multi_write_begin();
+
   // setup HW
   timer2_init();
   pit_set_max(0);
@@ -295,14 +328,17 @@ u08 trk_read_to_spiram(int verbose)
   pit_reset();
   floppy_low_enable_index_intr(read_index_func);
 
-  // begin bulk transfer
-  spi_low_mst_init();
-  spiram_multi_init();
-  spiram_multi_write_begin();
-
   // wait for an index marker
   idx_flag = 0;
-  while(!idx_flag) {}
+  while(!idx_flag) {
+      // no index found!
+      if(pit_peek() > NO_IDX_COUNT) {
+          // set counter to zero to skip main loop
+          index_counter = 0;
+          found_index = 0;
+          break;
+      }
+  }
   idx_flag = 0;
 
   timer2_enable();
@@ -368,34 +404,48 @@ u08 trk_read_to_spiram(int verbose)
   }
 
   timer2_disable();
-  spiram_multi_write_end();
-
   floppy_low_disable_index_intr();
   pit_disable();
+  spiram_multi_write_end();
 
   // store values
-  index_counter = index_get_max_index();
-  for(int i=0;i<index_counter;i++) {
-      index_add(my_index[index_counter-1-i]);
-  }
-  status.samples = word_values + byte_values;
-  status.word_values = word_values;
-  status.cell_overruns = cell_overruns;
-  status.data_overruns = spiram_buffer_overruns;
-  status.timer_overflows = timer_overflows;
-  buffer_set(track_num(), spiram_total, spiram_checksum);
+  error_t result = STATUS_OK;
+  if(found_index) {
+    index_counter = index_get_max_index();
+    for(int i=0;i<index_counter;i++) {
+        index_add(my_index[index_counter-1-i]);
+    }
+    status.samples = word_values + byte_values;
+    status.word_values = word_values;
+    status.cell_overruns = cell_overruns;
+    status.data_overruns = spiram_buffer_overruns;
+    status.timer_overflows = timer_overflows;
+    buffer_set(track_num(), spiram_total, spiram_checksum);
 
-  if(verbose) {
-      index_info();
-      status_info();
-      buffer_info();
+    if(verbose) {
+        index_info();
+        status_info();
+        buffer_info();
+    }
+
+    if(status.data_overruns > 0) {
+        result |= ERROR_SAMPLER_DATA_OVERRUN;
+    }
+    if(status.cell_overruns > 0) {
+        result |= ERROR_SAMPLER_CELL_OVERRUN;
+    }
+
+    result |= trk_check_spiram(verbose);
+
+  } else {
+    result = ERROR_SAMPLER_NO_INDEX;
   }
-  return trk_check_spiram(verbose);
+  return result;
 }
 
 // ----- check spiram contents vs. data checksum ------------------------------
 
-u08 trk_check_spiram(int verbose)
+error_t trk_check_spiram(int verbose)
 {
   if(verbose) {
       uart_send_string((u08 *)"rv: ");
@@ -467,7 +517,11 @@ u08 trk_check_spiram(int verbose)
       uart_send_hex_dword_crlf(diff);
   }
 
-  return (my_checksum != checksum);
+  if(my_checksum != checksum) {
+      return ERROR_SAMPLER_CHECKSUM_MISMATCH;
+  } else {
+      return STATUS_OK;
+  }
 }
 
 

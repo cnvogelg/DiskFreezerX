@@ -3,6 +3,7 @@
 #include "spiram.h"
 #include "uart.h"
 #include "uartutil.h"
+#include "error.h"
 
 typedef struct
 {
@@ -50,18 +51,16 @@ void buffer_info(void)
   uart_send_hex_dword_crlf(buf.checksum);
 }
 
-int
-buffer_write(io_func write_func)
+error_t buffer_write(io_func write_func)
 {
   // work buffer for data transfer is shared with spiram's buffers
   u08 *data = &spiram_buffer[0][0];
 
   // setup SPIRAM
   u08 err = spiram_multi_init();
-  if (err)
-    {
-      return 0x200 | err;
-    }
+  if (err) {
+    return ERROR_MEMORY_INIT;
+  }
 
   u32 bank = 0;
   u32 addr = 0;
@@ -70,9 +69,7 @@ buffer_write(io_func write_func)
   u32 total = 0;
   u32 checksum = 0;
   u32 size = buf.size;
-  while (size > 0)
-    {
-
+  while (size > 0) {
       // read block from SPIRAM
       spi_low_set_channel(SPI_RAM_CHANNEL);
       if (spiram_set_mode(SPIRAM_MODE_SEQ) != SPIRAM_MODE_SEQ)
@@ -102,7 +99,7 @@ buffer_write(io_func write_func)
       total += blk_size;
 
       // call write function
-      int result = write_func(data, blk_size);
+      error_t result = write_func(data, blk_size);
       if (result)
         {
           return result;
@@ -122,10 +119,9 @@ buffer_write(io_func write_func)
     }
 
   // compare checksum
-  if (checksum != buf.checksum)
-    {
-      return 0x300;
-    }
-
-  return 0;
+  if (checksum != buf.checksum) {
+      return ERROR_MEMORY_CHECKSUM_MISMATCH;
+  } else {
+      return STATUS_OK;
+  }
 }

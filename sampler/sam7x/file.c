@@ -39,18 +39,18 @@ DWORD get_fattime(void)
 
 static FIL fh;
 
-static int file_writer(const u08 *buffer, u32 size)
+static error_t file_writer(const u08 *buffer, u32 size)
 {
   UINT written;
   FRESULT result = f_write(&fh, buffer, size, &written);
   if(result != FR_OK) {
-      return 0x10;
+      return ERROR_FILE_WRITE;
   } else {
-      return 0;
+      return STATUS_OK;
   }
 }
 
-u08 file_save_buffer(int verbose)
+error_t file_save_buffer(int verbose)
 {
   // compose name: dir_name/trk_name
   u08 *name = full_name;
@@ -70,30 +70,24 @@ u08 file_save_buffer(int verbose)
   // enable tick irq
   pit_irq_start(disk_timerproc, led_proc);
 
-  if(disk_initialize(0) & STA_NOINIT)
-    {
-      uart_send_string((u08 *)"disk_initialize failed!");
-      uart_send_crlf();
-      return 0x10;
-    }
+  // init disk
+  if(disk_initialize(0) & STA_NOINIT) {
+      return ERROR_FILE_INIT;
+  }
 
-  if(f_mount(0, &fatfs) != FR_OK)
-    {
-      uart_send_string((u08 *)"mound failed!");
-      uart_send_crlf();
-      return 0x11;
-    }
+  // mount disk
+  if(f_mount(0, &fatfs) != FR_OK) {
+      return ERROR_FILE_MOUNT;
+  }
 
   // open track file
-  int errors = 0;
+  error_t status = STATUS_OK;
   FRESULT result = f_open(&fh, (char *)full_name, FA_WRITE | FA_CREATE_ALWAYS);
   if(result != FR_OK) {
-      uart_send_string((u08 *)"error opening file: ");
-      uart_send_hex_dword_crlf(result);
-      errors = 0x12;
+      status = ERROR_FILE_OPEN;
   } else {
       // write buffer to file
-      errors = buffer_write(file_writer);
+      status = buffer_write(file_writer);
 
       // close track file
       f_close(&fh);
@@ -107,13 +101,13 @@ u08 file_save_buffer(int verbose)
 
   if(verbose) {
       uart_send_string((u08 *)"buffer write: ");
-      uart_send_hex_dword_crlf(errors);
+      uart_send_hex_dword_crlf(status);
   }
 
-  return errors;
+  return status;
 }
 
-void file_dir(void)
+error_t file_dir(void)
 {
   DIR dir;
   FRESULT res;
@@ -121,28 +115,20 @@ void file_dir(void)
 
   pit_irq_start(disk_timerproc, led_proc);
 
-  if(disk_initialize(0) & STA_NOINIT)
-    {
-      uart_send_string((u08 *)"disk_initialize failed!");
-      uart_send_crlf();
-      return ;
-    }
-
-  if(f_mount(0, &fatfs) != FR_OK)
-    {
-      uart_send_string((u08 *)"disk_initialize failed!");
-      uart_send_crlf();
-      return;
-    }
-
-  uart_send_string((u08 *)"dir");
-  uart_send_crlf();
+  // init
+  if(disk_initialize(0) & STA_NOINIT) {
+      return ERROR_FILE_INIT;
+  }
+  // mount
+  if(f_mount(0, &fatfs) != FR_OK) {
+      return ERROR_FILE_MOUNT;
+  }
 
   // read dir
+  error_t status = STATUS_OK;
   res = f_opendir(&dir, "/");
   if(res) {
-      uart_send_string((u08 *)"f_opendir failed!");
-      uart_send_crlf();
+      status = ERROR_FILE_OPEN;
   } else {
 
 #if _USE_LFN
@@ -156,8 +142,8 @@ void file_dir(void)
               name = (u08 *)finfo.lfname;
           }
 
-          uart_send_hex_dword_crlf(finfo.fsize);
-          uart_send_string((u08 *)"entry: ");
+          uart_send_string((u08 *)"DE: ");
+          uart_send_hex_dword_space(finfo.fsize);
           uart_send_string(name);
           uart_send_crlf();
       }
@@ -169,11 +155,10 @@ void file_dir(void)
 
   pit_irq_stop();
 
-  uart_send_string((u08 *)"done");
-  uart_send_crlf();
+  return status;
 }
 
-u32 file_find_disk_dir(void)
+error_t file_find_disk_dir(u32 *result_num)
 {
   DIR dir;
   FRESULT res;
@@ -182,25 +167,20 @@ u32 file_find_disk_dir(void)
 
   pit_irq_start(disk_timerproc, led_proc);
 
-  if(disk_initialize(0) & STA_NOINIT)
-    {
-      uart_send_string((u08 *)"disk_initialize failed!");
-      uart_send_crlf();
-      return 0;
-    }
-
-  if(f_mount(0, &fatfs) != FR_OK)
-    {
-      uart_send_string((u08 *)"disk_initialize failed!");
-      uart_send_crlf();
-      return 0;
-    }
+  // init
+  if(disk_initialize(0) & STA_NOINIT) {
+      return ERROR_FILE_INIT;
+  }
+  // mount
+  if(f_mount(0, &fatfs) != FR_OK) {
+      return ERROR_FILE_MOUNT;
+  }
 
   // read dir
+  error_t status = STATUS_OK;
   res = f_opendir(&dir, "/");
   if(res) {
-      uart_send_string((u08 *)"f_opendir failed!");
-      uart_send_crlf();
+      status = ERROR_FILE_OPEN;
   } else {
 
 #if _USE_LFN
@@ -241,41 +221,32 @@ u32 file_find_disk_dir(void)
 
   pit_irq_stop();
 
-  return disk_num;
+  *result_num = disk_num;
+  return status;
 }
 
-u08 file_make_disk_dir(u32 num)
+error_t file_make_disk_dir(u32 num)
 {
   FRESULT res;
 
   pit_irq_start(disk_timerproc, led_proc);
-
-  if(disk_initialize(0) & STA_NOINIT)
-    {
-      uart_send_string((u08 *)"disk_initialize failed!");
-      uart_send_crlf();
-      return 0;
-    }
-
-  if(f_mount(0, &fatfs) != FR_OK)
-    {
-      uart_send_string((u08 *)"disk_initialize failed!");
-      uart_send_crlf();
-      return 0;
-    }
+  // init
+  if(disk_initialize(0) & STA_NOINIT) {
+      return ERROR_FILE_INIT;
+  }
+  // mount
+  if(f_mount(0, &fatfs) != FR_OK) {
+      return ERROR_FILE_MOUNT;
+  }
 
   // generate disk name
   word_to_hex((u16)(num & 0xffff), dir_name + 4);
 
-  uart_send_string((u08 *)"mkdir: ");
-  uart_send_string(dir_name);
-  uart_send_crlf();
-
   // create dir
+  error_t status = STATUS_OK;
   res = f_mkdir((const char *)dir_name);
   if(res) {
-      uart_send_string((u08 *)"f_mkdir failed!");
-      uart_send_crlf();
+      status = ERROR_FILE_MKDIR;
   }
 
   // unmount
@@ -284,7 +255,7 @@ u08 file_make_disk_dir(u32 num)
 
   pit_irq_stop();
 
-  return res & 0xff;
+  return status;
 }
 
 // ----- Test Func -----

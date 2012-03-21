@@ -16,7 +16,11 @@ u08 disk_read_all(u08 begin, u08 end, int do_save, int verbose)
 
   if(do_save) {
     // make directory for track data
-    disk_no = file_find_disk_dir();
+    error = file_find_disk_dir(&disk_no);
+    if(error) {
+        return error;
+    }
+
     error = file_make_disk_dir(disk_no);
     if(error) {
         return error;
